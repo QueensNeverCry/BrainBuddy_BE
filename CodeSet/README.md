@@ -28,6 +28,8 @@ BackEnd/
 │   │    ├── middleware.py
 │   │    └── exceptions.py
 │   │ 
+│   ├── schemas/  # API 입출력 데이터 구조 정의 (pydantic 클래스)
+│   │ 
 │   ├── models/  # ORM models, DB table 구조 정의...
 │   │ 
 │   ├── services/  # 각 도메인별 핵심 비즈니스 로직
