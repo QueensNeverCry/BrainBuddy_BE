@@ -7,12 +7,19 @@ from src.core.config import LOCAL, REDIS_PORT, BLACK_LIST_ID, JWT_SECRET_KEY, JW
 
 BlackList = redis.Redis(host= LOCAL, port= REDIS_PORT, db= BLACK_LIST_ID)
 
+# JWT 토큰에서 payload 추출
+def get_payload(token: str) -> dict:
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, JWT_ALGORITHM)
+        return payload
+    except JWTError:
+        raise HTTPException( status_code=status.HTTP_401_UNAUTHORIZED,
+                             detail="유효하지 않은 토큰입니다." )
+
 # JWT 토큰에서 jti(JWT ID), 만료시각 값을 추출
 def parse_token(token: str) -> tuple[str, datetime]:
     try:
-        payload = jwt.decode( token,
-                              JWT_SECRET_KEY,
-                              JWT_ALGORITHM )
+        payload = jwt.decode(token, JWT_SECRET_KEY, JWT_ALGORITHM)
         jti = payload.get("jti")
         exp = payload.get("exp")
         # exp는 UNIX timestamp(초) -> datetime 로 타입 변경

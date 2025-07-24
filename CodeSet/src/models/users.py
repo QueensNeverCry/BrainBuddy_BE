@@ -13,7 +13,8 @@ class User(Base):
     password = Column(String(128), nullable= False)                  # 해시된 password 저장
     tutorial_skip = Column(Boolean, nullable= False, default= False) # 튜토리얼 스킵 여부
     created_at = Column(DateTime, nullable= False, server_default= func.now())        
-    updated_at = Column(DateTime, nullable= True, onupdate= func.now())  
+    updated_at = Column(DateTime, nullable= True, onupdate= func.now())
+    status = Column(String(6), nullable= False, default= "active", comment= "계정 상태(active, banned)")
 
     def __repr__(self):
         return f"<User(id={self.id}, user_id='{self.user_id}', user_name='{self.user_name}')>"

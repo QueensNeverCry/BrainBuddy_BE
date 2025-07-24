@@ -14,8 +14,9 @@ BackEnd/
 │   │    │
 │   │    ├── auth/  # "인증" (회원가입, 로그인, JWT 등)
 │   │    │    ├── __init__.py
-│   │    │    ├── router.py   # 회원가입, 로그인, 토큰발급 등 엔드포인트
-│   │    │    └── schemas.py  # 인증 관련 pydantic
+│   │    │    ├── router.py   # 회원가입, 로그인, 로그아웃 엔드포인트 (ACCESS 토큰 재발급 엔드포인트 해야함)
+│   │    │    ├── schemas.py  # 인증 관련 pydantic (LogOutResponse 는 src/schemas/security.py 에 구현)
+│   │    │    └── service.py  # 인증(회원가입/로그인/로그아웃/JWT 등) 관련 로직 구현
 │   │    │
 │   │    └── feedback/  # "피드백" 등 기타 주요 도메인
 │   │         ├── __init__.py
@@ -29,6 +30,7 @@ BackEnd/
 │   │    └── exceptions.py
 │   │ 
 │   ├── schemas/  # API 입출력 데이터 구조 정의 (pydantic 클래스)
+│   │    └── security.py  # LogOutResponse 구현 (인증 관련 공통 pydantic)
 │   │ 
 │   ├── models/  # ORM models, DB table 구조 정의...
 │   │ 

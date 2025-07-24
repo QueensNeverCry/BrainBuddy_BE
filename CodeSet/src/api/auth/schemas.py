@@ -21,3 +21,7 @@ class LogInResponse(BaseModel):
     status: str = Field(...)
     user_name: str = Field(..., min_length= 2)
     user_id: str = Field(...)
+
+# JWT access 토큰 재발급 response.body
+class TokenResponse(BaseModel):
+    status: str = Field(...)
