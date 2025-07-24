@@ -1,0 +1,21 @@
+graph TD
+  subgraph User
+    Client[Client - Web Browser/App]
+  end
+
+  subgraph Infra
+    LB[로드밸런서 - WebSocket + Sticky Session]
+    Model1[Model Instance 1 <br>uvicorn]
+    Model2[Model Instance 2 <br>uvicorn]
+    ModelN[...]
+    DB[Firebase DB]
+  end
+
+  Client -- "촬영 시작 (WebSocket 요청)" --> LB
+  LB -- "WebSocket 연결(세션 고정)" --> Model1
+  LB -- "WebSocket 연결(세션 고정)" --> Model2
+  LB -- "WebSocket 연결(세션 고정)" --> ModelN
+  Model1 -- "분석결과/로그" --> DB
+  Model2 -- "분석결과/로그" --> DB
+  ModelN -- "분석결과/로그" --> DB
+  Client -. "촬영 중지 시 연결 종료" .-> LB
