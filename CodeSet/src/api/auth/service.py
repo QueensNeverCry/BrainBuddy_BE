@@ -6,7 +6,7 @@ import bcrypt
 import uuid
 from jose import jwt, JWTError
 from datetime import datetime, timezone, timedelta
-from src.core.config import JWT_SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_SEC
+from src.core.config import JWT_SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_SEC, REFRESH_TOKEN_EXPIRE_SEC
 
 # 주어진 id 를 사용하는 사용자가 DB에 있는지 조회
 def get_user_by_id(db: Session, user_id: str) -> User | None:
@@ -37,18 +37,30 @@ def authenticate_user(db: Session, user_id: str, password: str) -> User | None:
         return None
     return user
 
-# 첫 JWT 토큰 생성
+# JWT ACCESS 토큰 생성
 def create_access_token(data: dict) -> str:
-    secret_key = JWT_SECRET_KEY
-    algorithm = JWT_ALGORITHM
-    to_encode = data.copy()
+    payload = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(seconds= ACCESS_TOKEN_EXPIRE_SEC)
-    to_encode.update( { "exp": expire,
-                        "jti": str(uuid.uuid4()),
-                        "user_id": data["user_id"] } )
+    payload.update( { "exp": expire,
+                      "jti": str(uuid.uuid4()),
+                      "user_id": data["user_id"] } )
     try:
-        encoded_jwt = jwt.encode(to_encode, secret_key, algorithm= algorithm)
-        return encoded_jwt
+        access_token = jwt.encode(payload, key= JWT_SECRET_KEY, algorithm= JWT_ALGORITHM)
+        return access_token
     except JWTError as e:
         raise HTTPException(status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
-                            detail=f"JWT 토큰 생성 실패: {e}")
+                            detail= f"[FAIL] - JWT ACCESS TOKEN : {e}")
+
+# JWT REFRESH 토큰 생성
+def create_refresh_token(data: dict) -> str:
+    payload = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(seconds= REFRESH_TOKEN_EXPIRE_SEC)
+    payload.update( { "exp": expire,
+                      "jti": str(uuid.uuid4()),
+                      "user_id": data["user_id"] } )
+    try:
+        refresh_token = jwt.encode(payload, key= JWT_SECRET_KEY, algorithm= JWT_ALGORITHM)
+        return refresh_token
+    except JWTError as e:
+        raise HTTPException(status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail= f"[FAIL] - JWT REFRESH TOKEN : {e}")
