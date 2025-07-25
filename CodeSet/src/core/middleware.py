@@ -5,6 +5,10 @@ from datetime import datetime, timezone
 from src.core.security import create_access_token, get_payload
 from src.core.config import JWT_SECRET_KEY, JWT_ALGORITHM, SAFE_SEC, ACCESS, REFRESH, ACCESS_TOKEN_EXPIRE_SEC
 
+from src.api.auth.service import check_refresh_token
+
+# middleware 대신에 RTR 방식을 구현하기...
+
 class PreemptiveTokenRefreshMiddleware:
     def __init__(self, app):
         self.app = app
@@ -15,6 +19,7 @@ class PreemptiveTokenRefreshMiddleware:
             response = Response()
             access_token = request.cookies.get(ACCESS)
             refresh_token = request.cookies.get(REFRESH)
+            check_refresh_token(refresh_token)
             # 토큰이 존재하면 만료 임박 체크
             if access_token and refresh_token:
                 try:

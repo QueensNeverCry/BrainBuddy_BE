@@ -3,14 +3,14 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 
-from src.core.deps import get_users_db, get_refresh_tokens_db
-from src.core.security import get_payload, parse_token, blacklist_token, is_token_blacklisted
+from src.core.deps import get_users_db
+from src.core.security import get_payload, parse_token, blacklist_token
 from src.core.config import ACCESS, REFRESH, ACCESS_TOKEN_EXPIRE_SEC, REFRESH_TOKEN_EXPIRE_SEC
 from src.schemas.security import LogOutResponse
 from src.models.users import User
 
-from src.api.auth.schemas import SignUpRequest, SignUpResponse, LogInRequest, LogInResponse, TokenResponse
-from src.api.auth.service import add_user, authenticate_user, create_access_token, create_refresh_token, add_refresh_token
+from src.api.auth.schemas import SignUpRequest, SignUpResponse, LogInRequest, LogInResponse, RenewResponse, WithdrawRequest, WithdrawResponse
+from src.api.auth.service import add_user, get_user_by_id, erase_user_by_id, authenticate_user, create_access_token, create_refresh_token, add_refresh_token, check_refresh_token, erase_refresh_token
 
 
 
@@ -41,8 +41,9 @@ def login(login_in: LogInRequest, response: Response, db: Session = Depends(get_
     if not user:
         raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "아이디/비밀번호 불일치")
     access_token = create_access_token(data= {"user_id": user.user_id})
-    refresh_token = create_refresh_token(data={"user_id": user.user_id})
-    add_refresh_token(db, refresh_token, user.user_id, login_in.device_id) # Users, RefreshTokens 테이블은 동일DB
+    refresh_token = create_refresh_token(db, data={"user_id": user.user_id})
+    # 현재 Users, RefreshTokens 테이블은 동일DB
+    add_refresh_token(db, refresh_token, user.user_id, login_in.device_id)
     # response - cookie에 JWT ACCESS TOKEN 설정
     response.set_cookie( key= ACCESS,
                          value= access_token,
@@ -68,22 +69,21 @@ def login(login_in: LogInRequest, response: Response, db: Session = Depends(get_
 @router.post("/auth/refresh", 
              status_code= status.HTTP_200_OK,
              summary= "JWT ACCESS 토큰 재발급", 
-             description= "Refresh 토큰의 유효성 검사 후 새로운 Access 토큰을 반환")
-def renew_access_token(request: Request, response: Response, db: Session = Depends(get_users_db)) -> TokenResponse:
+             description= "Refresh 토큰의 유효성 검사 후 새로운 Access / Refresh 토큰을 반환")
+def renew_access_token(request: Request, response: Response, db: Session = Depends(get_users_db)) -> RenewResponse:
     refresh_token = request.cookies.get(REFRESH)
+    erase_refresh_token(db, refresh_token)
     if not refresh_token:
         raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "There is no Refresh Token in cookie. Login plz")
     try:
-        refresh_payload = get_payload(refresh_token) # JWT 검증 및 payload 추출
-        if is_token_blacklisted(refresh_payload["jti"]):
-            raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail="블랙리스트 등록된 토큰입니다. 재로그인 필요")
+        refresh_payload = check_refresh_token(refresh_token) # JWT 검증 및 payload 추출
         user_id = refresh_payload.get("user_id")
         if not user_id:
             raise HTTPException(status_code= status.HTTP_500_INTERNAL_SERVER_ERROR, detail="토큰 decoding 실패")
         user = db.query(User).filter(User.user_id == user_id).first()
         # 존재하지 않는 사용자
         if user is None:
-            raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail="존재하지 않는 사용자")
+            raise HTTPException(status_code= status.HTTP_404_UNAUTHORIZED, detail="없는데요 ?")
         # 영구정지/차단된 사용자
         if user.status == "banned":   # 또는 user.is_active == False 등
             raise HTTPException(status_code= status.HTTP_403_FORBIDDEN, detail="정지된 사용자")
@@ -91,7 +91,9 @@ def renew_access_token(request: Request, response: Response, db: Session = Depen
         raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "Refresh Token is not valid. Login plz.")
     # 새로운 ACCESS 토큰 생성
     new_access_token = create_access_token({"user_id": user_id})
-    # 새로운 ACCESS 토큰을 쿠키에 httpOnly, secure로 발급
+    new_refresh_token = create_refresh_token(data={"user_id": user_id})
+    add_refresh_token(db, new_refresh_token, user.user_id)
+    # 새로운 ACCESS, REFRESH 토큰을 쿠키에 httpOnly, secure로 발급
     response.set_cookie( key= ACCESS,
                          value= new_access_token,
                          httponly= True,
@@ -99,7 +101,14 @@ def renew_access_token(request: Request, response: Response, db: Session = Depen
                          samesite= "strict",
                          max_age= ACCESS_TOKEN_EXPIRE_SEC,
                          path= "/" )
-    return TokenResponse(status= "success")
+    response.set_cookie( key= REFRESH,
+                         value= new_refresh_token,
+                         httponly= True,
+                         secure= True,
+                         samesite= "strict",
+                         max_age= REFRESH_TOKEN_EXPIRE_SEC,
+                         path= "/")
+    return RenewResponse(status= "success")
         
 
 # 로그아웃 API [POST  https://{Server DNS}/api/auth/log-out]
@@ -107,20 +116,66 @@ def renew_access_token(request: Request, response: Response, db: Session = Depen
              status_code= status.HTTP_200_OK,
              summary= "로그아웃", 
              description= "JWT/Refresh 토큰 블랙리스트 등록 및 쿠키 삭제")
-def logout(request: Request, response: Response) -> LogOutResponse:
+def logout(request: Request, response: Response, db: Session = Depends(get_users_db)) -> LogOutResponse:
     # 쿠키에서 토큰 추출
     token = request.cookies.get(ACCESS)
     refresh_token = request.cookies.get(REFRESH)
-    if not token and not refresh_token:
-        raise HTTPException(status_code= 401, detail= "로그인 상태가 아닙니다.")
+    if not token or not refresh_token:
+        raise HTTPException(status_code= status.HTTP_403_FORBIDDEN, detail= "로그인 상태가 아닙니다.")
     # 토큰에서 jti 추출 후 JTI-블랙리스트 등록
     if token:
         jti, exp = parse_token(token)
-        blacklist_token(jti, exp) # ACCESS token 블랙리스트에 등록
+        if datetime.now() > exp :
+            raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "이미 로그아웃 된 상태")
+        else:
+            blacklist_token(jti, exp) # ACCESS token 블랙리스트에 등록
     if refresh_token:
         jti_r, exp_r = parse_token(refresh_token)
         blacklist_token(jti_r, exp_r) # REFRESH token 도 블랙리스트 처리
-    # 쿠키 삭제 (프론트는 안해도 됨)
-    response.delete_cookie(ACCESS)
-    response.delete_cookie(REFRESH)
+        # 사용자의 refresh_token DB 에서 삭제, 만료 또는 변조되었더라도 UX 고려 로그아웃 처리
+        erase_refresh_token(db, refresh_token)
+    # 쿠키 삭제
+    response.delete_cookie(key= ACCESS, path="/")
+    response.delete_cookie(key= REFRESH, path="/")
     return LogOutResponse(status= "success", message= "로그아웃 되었습니다.")
+
+
+# 회원탈퇴 API [DELETE  https://{Server DNS}/api/auth/delete-account]
+@router.delete("/auth/delete-account",
+               status_code= status.HTTP_200_OK,
+               summary= "회원탈퇴",
+               description= "가입한 사용자의 회원 탈퇴")
+def delete_user(request: Request, response: Response, db: Session = Depends(get_users_db)) -> WithdrawResponse:
+    token = request.cookies.get(ACCESS)
+    refresh_token = request.cookies.get(REFRESH)
+    user_id = request.body["user_id"]
+    if not token or not refresh_token:
+        raise HTTPException(status_code= status.HTTP_403_FORBIDDEN, detail= "토큰이 존재하지 않습니다.")
+    try:
+        payload = get_payload(token)
+        user_id = payload.get("user_id")
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="토큰이 유효하지 않습니다.")
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="존재하지 않는 사용자입니다.")
+    else:
+        try:
+            erase_user_by_id(db, user_id)
+        except Exception:
+            raise HTTPException(status_code= status.HTTP_500_INTERNAL_SERVER_ERROR, detail="회원 탈퇴 처리 중 서버 오류가 발생했습니다.")
+    try:
+        jti, exp = parse_token(token)
+        blacklist_token(jti, exp)
+    except Exception:
+        pass
+    try:
+        jti_r, exp_r = parse_token(refresh_token)
+        blacklist_token(jti_r, exp_r)
+        erase_refresh_token(db, refresh_token)
+    except Exception:
+        pass
+    # 쿠키 삭제
+    response.delete_cookie(key= ACCESS, path= "/")
+    response.delete_cookie(key= REFRESH, path="/")
+    return WithdrawResponse(status="success", message="회원 탈퇴가 정상 처리되었습니다.")

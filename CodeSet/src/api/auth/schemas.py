@@ -24,5 +24,15 @@ class LogInResponse(BaseModel):
     user_id: str = Field(...)
 
 # JWT access 토큰 재발급 response.body
-class TokenResponse(BaseModel):
+class RenewResponse(BaseModel):
     status: str = Field(...)
+
+# 회원탈퇴 API request.body
+class WithdrawRequest(BaseModel):
+    user_id: str = Field(...)
+    password: str = Field(...)
+
+# 회원탈퇴 API response.body
+class WithdrawResponse(BaseModel):
+    status: str = Field(...)
+    message: str = Field(...)
