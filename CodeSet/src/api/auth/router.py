@@ -1,32 +1,37 @@
 # src/api/auth/router.py
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
-from fastapi_jwt_auth import AuthJWT
-from fastapi_jwt_auth.exceptions import AuthJWTException
 from sqlalchemy.orm import Session
+from datetime import datetime, timezone
 
-from src.core.deps import get_users_db, get_user
+from src.core.deps import get_users_db, get_refresh_tokens_db
 from src.core.security import get_payload, parse_token, blacklist_token, is_token_blacklisted
 from src.core.config import ACCESS, REFRESH, ACCESS_TOKEN_EXPIRE_SEC, REFRESH_TOKEN_EXPIRE_SEC
 from src.schemas.security import LogOutResponse
 from src.models.users import User
 
 from src.api.auth.schemas import SignUpRequest, SignUpResponse, LogInRequest, LogInResponse, TokenResponse
-from src.api.auth.service import create_user, authenticate_user, create_access_token, create_refresh_token
+from src.api.auth.service import add_user, authenticate_user, create_access_token, create_refresh_token, add_refresh_token
+
+
 
 router = APIRouter()
 
+
+# 회원 가입 API [POST  https://{Server DNS}/api/auth/sign-up]
 @router.post("/auth/sign-up", 
              status_code= status.HTTP_201_CREATED,
              summary= "회원가입", 
              description= "신규 사용자 회원가입 API. 이름, ID, PW 를 입력받음")
 def sign_up(signup_in: SignUpRequest, db: Session = Depends(get_users_db)) -> SignUpResponse:
-    user = create_user(db, signup_in.user_id, signup_in.user_name, signup_in.password)
+    user = add_user(db, signup_in.user_id, signup_in.user_name, signup_in.password)
     if not user:
         raise HTTPException(status_code= status.HTTP_409_CONFLICT, detail= "이미 사용중인 ID 입니다.")
     return SignUpResponse(status= "success", 
                           user_name= user.user_name, 
                           user_id= user.user_id)
 
+
+# 로그인 API [POST  https://{Server DNS}/api/auth/log-in]
 @router.post("/auth/log-in", 
              status_code= status.HTTP_200_OK, 
              summary= "로그인", 
@@ -37,12 +42,13 @@ def login(login_in: LogInRequest, response: Response, db: Session = Depends(get_
         raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "아이디/비밀번호 불일치")
     access_token = create_access_token(data= {"user_id": user.user_id})
     refresh_token = create_refresh_token(data={"user_id": user.user_id})
+    add_refresh_token(db, refresh_token, user.user_id, login_in.device_id) # Users, RefreshTokens 테이블은 동일DB
     # response - cookie에 JWT ACCESS TOKEN 설정
     response.set_cookie( key= ACCESS,
                          value= access_token,
-                         httponly= True,     # JS로 접근 불가, XSS 보호
+                         httponly= True,     # JS로 접근 불가, XSS 공격 방지
                          secure= True,       # HTTPS에서만 전송
-                         samesite= "lax",    # 필요시 "strict" 등 조정
+                         samesite= "strict", # CSRF 공격 방지, BrainBuddy 도메인에서 출발한 요청에만 브라우저가 쿠키 첨부 !
                          max_age= ACCESS_TOKEN_EXPIRE_SEC,
                          path= "/")
     # response - cookie에 JWT REFRESH TOKEN 설정
@@ -50,13 +56,15 @@ def login(login_in: LogInRequest, response: Response, db: Session = Depends(get_
                          value= refresh_token,
                          httponly= True,
                          secure= True,
-                         samesite= "lax",
+                         samesite= "strict",
                          max_age= REFRESH_TOKEN_EXPIRE_SEC,
                          path= "/")
     return LogInResponse( status= "success",
                           user_name= user.user_name,
                           user_id= user.user_id)
 
+
+# Access Token Refresh 요청 API [POST  https://{Server DNS}/api/auth/refresh]
 @router.post("/auth/refresh", 
              status_code= status.HTTP_200_OK,
              summary= "JWT ACCESS 토큰 재발급", 
@@ -66,12 +74,12 @@ def renew_access_token(request: Request, response: Response, db: Session = Depen
     if not refresh_token:
         raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "There is no Refresh Token in cookie. Login plz")
     try:
-        payload = get_payload(refresh_token) # JWT 검증 및 payload 추출
-        if is_token_blacklisted(payload["jti"]):
+        refresh_payload = get_payload(refresh_token) # JWT 검증 및 payload 추출
+        if is_token_blacklisted(refresh_payload["jti"]):
             raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail="블랙리스트 등록된 토큰입니다. 재로그인 필요")
-        user_id = payload.get("user_id")
+        user_id = refresh_payload.get("user_id")
         if not user_id:
-            raise ValueError("No user_id in Refresh token.")
+            raise HTTPException(status_code= status.HTTP_500_INTERNAL_SERVER_ERROR, detail="토큰 decoding 실패")
         user = db.query(User).filter(User.user_id == user_id).first()
         # 존재하지 않는 사용자
         if user is None:
@@ -88,12 +96,13 @@ def renew_access_token(request: Request, response: Response, db: Session = Depen
                          value= new_access_token,
                          httponly= True,
                          secure= True,
-                         samesite= "lax",
+                         samesite= "strict",
                          max_age= ACCESS_TOKEN_EXPIRE_SEC,
                          path= "/" )
     return TokenResponse(status= "success")
         
 
+# 로그아웃 API [POST  https://{Server DNS}/api/auth/log-out]
 @router.post("/auth/log-out", 
              status_code= status.HTTP_200_OK,
              summary= "로그아웃", 
