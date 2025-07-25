@@ -1,11 +1,27 @@
 from fastapi import HTTPException, status
 from jose import jwt, JWTError
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import redis
+import uuid
 
-from src.core.config import LOCAL, REDIS_PORT, BLACK_LIST_ID, JWT_SECRET_KEY, JWT_ALGORITHM, EXIST
+from src.core.config import LOCAL, REDIS_PORT, BLACK_LIST_ID, JWT_SECRET_KEY, JWT_ALGORITHM, EXIST, ACCESS_TOKEN_EXPIRE_SEC
+
 
 BlackList = redis.Redis(host= LOCAL, port= REDIS_PORT, db= BLACK_LIST_ID)
+
+# JWT ACCESS 토큰 생성
+def create_access_token(data: dict) -> str:
+    payload = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(seconds= ACCESS_TOKEN_EXPIRE_SEC)
+    payload.update({ "exp": expire,
+                      "jti": str(uuid.uuid4()),
+                      "user_id": data["user_id"] } )
+    try:
+        access_token = jwt.encode(payload, key= JWT_SECRET_KEY, algorithm= JWT_ALGORITHM)
+        return access_token
+    except JWTError as e:
+        raise HTTPException(status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail= f"[FAIL] - JWT ACCESS TOKEN : {e}")
 
 # JWT 토큰에서 payload 추출
 def get_payload(token: str) -> dict:

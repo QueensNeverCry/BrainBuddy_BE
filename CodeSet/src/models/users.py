@@ -4,6 +4,7 @@ from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
+# MySQL DB 의 Users 테이블에 대한 ORM 객체
 class User(Base):
     __tablename__ = "Users"
 

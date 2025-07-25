@@ -5,7 +5,7 @@ from src.core.security import get_payload
 from src.models.users import User
 
 from sqlalchemy.orm import Session
-from src.core.database import UsersSession
+from src.core.database import UsersSession, RefreshTokensSession
 
 def get_users_db():
     db: Session = UsersSession()
@@ -13,6 +13,13 @@ def get_users_db():
         yield db  # 세션을 호출 함수에 넘김
     finally:
         db.close()  # 작업 끝나면 세션 닫기(메모리/커넥션 누수 방지)
+
+def get_refresh_tokens_db():
+    db: Session = RefreshTokensSession()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 # ACCESS 토큰 발급 API 경로 지정

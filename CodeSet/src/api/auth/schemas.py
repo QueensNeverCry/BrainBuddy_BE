@@ -16,6 +16,7 @@ class SignUpResponse(BaseModel):
 class LogInRequest(BaseModel):
     user_id: str = Field(...)
     password: str = Field(..., min_length= 8)
+    device_id: str = Field(...) # 프론트 단에서 device_id 추출 후, body에 담아줘야 함 !!
 # 로그인 API response.body
 class LogInResponse(BaseModel):
     status: str = Field(...)
