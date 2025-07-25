@@ -9,6 +9,7 @@ from src.core.config import LOCAL, REDIS_PORT, BLACK_LIST_ID, JWT_SECRET_KEY, JW
 
 BlackList = redis.Redis(host= LOCAL, port= REDIS_PORT, db= BLACK_LIST_ID)
 
+
 # JWT ACCESS 토큰 생성
 def create_access_token(data: dict) -> str:
     payload = data.copy()
@@ -49,8 +50,8 @@ def parse_token(token: str) -> tuple[str, datetime]:
 def blacklist_token(jti: str, expire: datetime) -> None:
     now = datetime.now(timezone.utc)
     ttl = max(int((expire - now).total_seconds()), 1) # 딱 0이 되어버리면 1로 보정
-    BlackList.setex(f"blacklist:{jti}", ttl, EXIST)
+    BlackList.setex(jti, ttl, EXIST)
 
 # jti 를 이용하여 유효한 토큰인지 검사
 def is_token_blacklisted(jti: str) -> bool:
-    return BlackList.exists(f"blacklist:{jti}")
+    return BlackList.exists(jti)

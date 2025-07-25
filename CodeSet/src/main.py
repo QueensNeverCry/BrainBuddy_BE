@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from src.core.preemptive_middleware import PreemptiveTokenRefreshMiddleware
+from src.core.middleware import PreemptiveTokenRefreshMiddleware
 
 app = FastAPI()
 
