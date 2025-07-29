@@ -1,57 +1,185 @@
 from fastapi import HTTPException, status
-from jose import jwt, JWTError
+from jose import jwt, JWTError, ExpiredSignatureError
+from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone, timedelta
-import redis
 import uuid
 
-from src.core.config import LOCAL, REDIS_PORT, BLACK_LIST_ID, JWT_SECRET_KEY, JWT_ALGORITHM, EXIST, ACCESS_TOKEN_EXPIRE_SEC
+from src.core.config import JWT_SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_SEC, REFRESH_TOKEN_EXPIRE_SEC, ACCESS_TYPE, REFRESH_TYPE, ISSUER
+from src.core.response_code import TokenIssueCode, TokenAuth
+from src.core.repository import AccessBlackList, RefreshTokensTable
 
 
-BlackList = redis.Redis(host= LOCAL, port= REDIS_PORT, db= BLACK_LIST_ID)
+RequiredClaims = {"sub", "jti", "iat", "typ", "iss", "exp"}
+
+def get_invalid_claims(payload: dict) -> set[str]:
+    invalid = set()
+    for claim in RequiredClaims:
+        # 키가 없거나
+        if claim not in payload:
+            invalid.add(claim)
+            continue
+        # 값이 None 또는 빈 문자열
+        value = payload[claim]
+        if value is None or (isinstance(value, str) and value.strip() == ""):
+            invalid.add(claim)
+    return invalid
 
 
-# JWT ACCESS 토큰 생성
-def create_access_token(data: dict) -> str:
-    payload = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(seconds= ACCESS_TOKEN_EXPIRE_SEC)
-    payload.update({ "exp": expire,
-                      "jti": str(uuid.uuid4()),
-                      "user_id": data["user_id"] } )
-    try:
-        access_token = jwt.encode(payload, key= JWT_SECRET_KEY, algorithm= JWT_ALGORITHM)
-        return access_token
-    except JWTError as e:
-        raise HTTPException(status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
-                            detail= f"[FAIL] - JWT ACCESS TOKEN : {e}")
+class Token:
+    # JWT ACCESS 토큰 생성
+    @staticmethod
+    def create_access_token(user_id: str) -> str:
+        now = datetime.now(timezone.utc)
+        expire = now + timedelta(seconds= ACCESS_TOKEN_EXPIRE_SEC)
+        payload = {"iat": now,
+                   "exp": expire,
+                   "jti": str(uuid.uuid4()),
+                   "sub": user_id,
+                   "typ": ACCESS_TYPE,
+                   "iss": ISSUER}
+        try:
+            access_token = jwt.encode(claims= payload, key= JWT_SECRET_KEY, algorithm= JWT_ALGORITHM)
+            return access_token
+        except JWTError as e:
+            raise HTTPException(status_code= TokenIssueCode.TOKEN_ISSUE_FAILED.value.status,
+                                detail={"code" : TokenIssueCode.TOKEN_ISSUE_FAILED.value.code,
+                                        "message" : TokenIssueCode.TOKEN_ISSUE_FAILED.value.message})
 
-# JWT 토큰에서 payload 추출
-def get_payload(token: str) -> dict:
-    try:
-        payload = jwt.decode(token, JWT_SECRET_KEY, JWT_ALGORITHM)
-        return payload
-    except JWTError:
-        raise HTTPException( status_code=status.HTTP_401_UNAUTHORIZED,
-                             detail="유효하지 않은 토큰입니다." )
+    # JWT REFRESH 토큰 생성
+    @staticmethod
+    def create_refresh_token(user_id: str) -> str:
+        now = datetime.now(timezone.utc)
+        expire = now + timedelta(seconds= REFRESH_TOKEN_EXPIRE_SEC)
+        payload = {"iat": now,
+                   "exp": expire,
+                   "jti": str(uuid.uuid4()),
+                   "sub": user_id,
+                   "typ": REFRESH_TYPE,
+                   "iss": ISSUER}
+        try:
+            refresh_token = jwt.encode(payload, key= JWT_SECRET_KEY, algorithm= [JWT_ALGORITHM])
+            return refresh_token
+        except JWTError as e:
+            raise HTTPException(status_code= TokenIssueCode.TOKEN_ISSUE_FAILED.value.status,
+                                detail={"code" : TokenIssueCode.TOKEN_ISSUE_FAILED.value.code,
+                                        "message" : TokenIssueCode.TOKEN_ISSUE_FAILED.value.message})
 
-# JWT 토큰에서 jti(JWT ID), 만료시각 값을 추출
-def parse_token(token: str) -> tuple[str, datetime]:
-    try:
-        payload = jwt.decode(token, JWT_SECRET_KEY, JWT_ALGORITHM)
-        jti = payload.get("jti")
-        exp = payload.get("exp")
-        # exp는 UNIX timestamp(초) -> datetime 로 타입 변경
-        exp_dt = datetime.fromtimestamp(exp, tz=timezone.utc)
-        return jti, exp_dt
-    except JWTError as e:
-        raise HTTPException( status_code= status.HTTP_401_UNAUTHORIZED,
-                             detail= f"유효하지 않은 토큰입니다. {e}" )
+    # 두 token 모든 claim 검증, user_id 일치 확인
+    @staticmethod
+    async def is_normal_tokens(db : AsyncSession, old_access : str, old_refresh : str, user_id : str | None) -> bool:
+        if old_access is None or old_refresh is None:
+            return False
+        now = datetime.now(timezone.utc)
+        try:
+            access_payload = jwt.decode(old_access, JWT_SECRET_KEY, [JWT_ALGORITHM], options={"verify_exp": False})
+            refresh_payload = jwt.decode(old_refresh, JWT_SECRET_KEY, [JWT_ALGORITHM], options={"verify_exp": False})
+            access_invalid = get_invalid_claims(access_payload)
+            refresh_invalid = get_invalid_claims(refresh_payload)
+            if access_invalid or refresh_invalid:
+                return False
+            if user_id != access_payload.get("sub") != refresh_payload.get("sub") or access_payload.get("typ") != ACCESS_TYPE or refresh_payload.get("typ") != REFRESH_TYPE:
+                #  Access 는 blacklist 에 등록, Refresh 토큰은 해당 record 가 있다면, revoked = True 설정
+                await AccessBlackList.add_blacklist_token(access_payload.get("jti"), access_payload.get("exp"))
+                await RefreshTokensTable.update_to_revoked(db, refresh_payload.get("jti"))
+                return False
+        except:
+            return False
+        return True
+    
+    @staticmethod
+    def is_refresh_expired(old_refresh : str) -> bool:
+        # True면 만료(expired) 상태
+        try:
+            refresh_payload = jwt.decode(old_refresh, JWT_SECRET_KEY, [JWT_ALGORITHM])
+        except ExpiredSignatureError:
+            return True
+        return False
+    
+    @staticmethod
+    async def is_refresh_revoked(db : AsyncSession, old_access_token : str, old_refresh_token : str) -> bool:
+        # Refresh Token 을 DB table 에서 jti 기반 조회... revoked 인 경우 Access 는 blacklist 에 등록 후 False 반환
+        try:
+            refresh_payload = jwt.decode(old_refresh_token,JWT_SECRET_KEY,algorithms=[JWT_ALGORITHM])
+        except JWTError:
+            return True    
+        jti = refresh_payload.get("jti")
+        # DB 조회: 해당 JTI의 revoked 플래그 검사
+        result = await RefreshTokensTable.is_revoked(db, jti)
+        if result is not False:
+            access_payload = jwt.decode(old_access_token, JWT_SECRET_KEY, [JWT_ALGORITHM], options={"verify_exp": False})
+            await AccessBlackList.add_blacklist_token(access_payload.get("jti"), access_payload.get("exp"))
+            return True
+        else:
+            # 해당 refresh token record 의 revoked = True 처리
+            await RefreshTokensTable.update_to_revoked(db, jti)
+            return False
+    
+    
+    # JWT 토큰에서 payload 추출
+    @staticmethod
+    def get_payload(token: str) -> dict:
+        try:
+            payload = jwt.decode(token, JWT_SECRET_KEY, [JWT_ALGORITHM])
+            invalid_claims = get_invalid_claims(payload=payload)
+            if invalid_claims:
+                raise HTTPException(status_code=TokenAuth.TOKEN_INVALID.value.status,
+                                    detail={"code" : TokenAuth.TOKEN_INVALID.value.code,
+                                            "message" : TokenAuth.TOKEN_INVALID.value.message})
+            return payload
+        except ExpiredSignatureError:
+            raise HTTPException(status_code= TokenAuth.TOKEN_EXPIRED.value.status,
+                                detail={"code" : TokenAuth.TOKEN_EXPIRED.value.code,
+                                        "message" : TokenAuth.TOKEN_EXPIRED.value.message})
+        except JWTError:
+            raise HTTPException(status_code= TokenAuth.TOKEN_INVALID.value.status,
+                                detail={"code" : TokenAuth.TOKEN_INVALID.value.code,
+                                        "message" : TokenAuth.TOKEN_INVALID.value.message})
 
-# jti(Key)와 만료 시간을 설정 Redis에 저장
-def blacklist_token(jti: str, expire: datetime) -> None:
-    now = datetime.now(timezone.utc)
-    ttl = max(int((expire - now).total_seconds()), 1) # 딱 0이 되어버리면 1로 보정
-    BlackList.setex(jti, ttl, EXIST)
-
-# jti 를 이용하여 유효한 토큰인지 검사
-def is_token_blacklisted(jti: str) -> bool:
-    return BlackList.exists(jti)
+    # JWT 토큰에서 user_id 추출
+    @staticmethod
+    def parse_user_id(token: str) -> str:
+        try:
+            payload = jwt.decode(token, JWT_SECRET_KEY, [JWT_ALGORITHM], options={"verify_exp": False})
+            return payload.get("sub")
+        except:
+            raise HTTPException(status_code= TokenAuth.TOKEN_INVALID.value.status,
+                                detail={"code" : TokenAuth.TOKEN_INVALID.value.code,
+                                        "message" : TokenAuth.TOKEN_INVALID.value.message})
+        
+    @staticmethod
+    def parse_jti(token: str) -> str:
+        try:
+            payload = jwt.decode(token, JWT_SECRET_KEY, [JWT_ALGORITHM], options={"verify_exp": False})
+            return payload.get("jti")
+        except:
+            raise HTTPException(status_code= TokenAuth.TOKEN_INVALID.value.status,
+                                detail={"code" : TokenAuth.TOKEN_INVALID.value.code,
+                                        "message" : TokenAuth.TOKEN_INVALID.value.message})
+        
+    @staticmethod
+    def parse_exp(token: str) -> str:
+        try:
+            payload = jwt.decode(token, JWT_SECRET_KEY, [JWT_ALGORITHM], options={"verify_exp": False})
+            return payload.get("exp")
+        except:
+            raise HTTPException(status_code= TokenAuth.TOKEN_INVALID.value.status,
+                                detail={"code" : TokenAuth.TOKEN_INVALID.value.code,
+                                        "message" : TokenAuth.TOKEN_INVALID.value.message})
+    # # JWT 토큰에서 jti(JWT ID), 만료시각 값을 추출
+    # @staticmethod
+    # def parse_token(token: str) -> tuple[str, datetime]:
+    #     try:
+    #         payload = jwt.decode(token, JWT_SECRET_KEY, JWT_ALGORITHM)
+    #         jti = payload.get("jti")
+    #         exp = payload.get("exp")
+    #         # exp는 UNIX timestamp(초) -> datetime 로 타입 변경
+    #         exp_dt = datetime.fromtimestamp(exp, tz=timezone.utc)
+    #         return jti, exp_dt
+    #     except ExpiredSignatureError:
+    #         raise HTTPException(status_code= TokenAuth.TOKEN_EXPIRED.value.status,
+    #                             detail={"code" : TokenAuth.TOKEN_EXPIRED.value.code,
+    #                                     "message" : TokenAuth.TOKEN_EXPIRED.value.message})
+    #     except JWTError:
+    #         raise HTTPException(status_code= TokenAuth.TOKEN_INVALID.value.status,
+    #                             detail={"code" : TokenAuth.TOKEN_INVALID.value.code,
+    #                                     "message" : TokenAuth.TOKEN_INVALID.value.message})
