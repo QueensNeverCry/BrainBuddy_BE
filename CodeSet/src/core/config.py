@@ -1,14 +1,16 @@
-# src/core/config.py
 import os
 from dotenv import load_dotenv
 
-load_dotenv()  # .env 파일을 프로젝트 시작 시 자동으로 환경변수로 로드
+load_dotenv()
 
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
+ISSUER = "KSEB_04"
 ACCESS = os.getenv("ACCESS")
+ACCESS_TYPE = "queen"
 ACCESS_TOKEN_EXPIRE_SEC= os.getenv("BB_ACCESS_TOKEN_EXPIRE_SEC")
 REFRESH = os.getenv("REFRESH")
+REFRESH_TYPE = "nevercry"
 REFRESH_TOKEN_EXPIRE_SEC = os.getenv("BB_REFRESH_TOKEN_EXPIRE_SEC")
 SAFE_SEC = os.getenv("BB_SAFE_SEC")
 LOCAL = os.getenv("localhost")

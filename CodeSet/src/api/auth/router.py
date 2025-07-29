@@ -1,181 +1,166 @@
-# src/api/auth/router.py
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
-from sqlalchemy.orm import Session
-from datetime import datetime, timezone
+from fastapi import APIRouter, Request, Response, HTTPException, Depends, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.deps import get_users_db
-from src.core.security import get_payload, parse_token, blacklist_token
-from src.core.config import ACCESS, REFRESH, ACCESS_TOKEN_EXPIRE_SEC, REFRESH_TOKEN_EXPIRE_SEC
-from src.schemas.security import LogOutResponse
 from src.models.users import User
+from src.core.security import Token
+from src.core.deps import AsyncDB, get_current_user
+from src.core.config import ACCESS, ACCESS_TOKEN_EXPIRE_SEC, REFRESH, REFRESH_TOKEN_EXPIRE_SEC
 
-from src.api.auth.schemas import SignUpRequest, SignUpResponse, LogInRequest, LogInResponse, RenewResponse, WithdrawRequest, WithdrawResponse
-from src.api.auth.service import add_user, get_user_by_id, erase_user_by_id, authenticate_user, create_access_token, create_refresh_token, add_refresh_token, check_refresh_token, erase_refresh_token
+from src.api.auth.schemas import SignUpRequest, SignUpResponse, LogInRequest, LogInResponse, RenewResponse, LogOutResponse, WithdrawReq, WithdrawRes
+from src.api.auth.response_code import SignUpCode, LogInCode, TokenAuth, WithdrawCode
+from src.api.auth.service import AuthService
+from src.api.auth.utils import get_code_info
 
 
 
 router = APIRouter()
 
 
-# 회원 가입 API [POST  https://{Server DNS}/api/auth/sign-up]
-@router.post("/auth/sign-up", 
-             status_code= status.HTTP_201_CREATED,
-             summary= "회원가입", 
-             description= "신규 사용자 회원가입 API. 이름, ID, PW 를 입력받음")
-def sign_up(signup_in: SignUpRequest, db: Session = Depends(get_users_db)) -> SignUpResponse:
-    user = add_user(db, signup_in.user_id, signup_in.user_name, signup_in.password)
-    if not user:
-        raise HTTPException(status_code= status.HTTP_409_CONFLICT, detail= "이미 사용중인 ID 입니다.")
-    return SignUpResponse(status= "success", 
-                          user_name= user.user_name, 
-                          user_id= user.user_id)
+
+# pydantic 의 모델 단 에서 먼저 Error 처리
+@router.exception_handler(RequestValidationError)
+async def auth_validation_handler(request: Request, exc: RequestValidationError):
+    # 에러 code에 따라 SignUpCode Enum에서 정보를 추출
+    for error in exc.errors():
+        code = error.get("msg")
+        code_info = get_code_info(code)
+        if code_info:
+            return JSONResponse(status_code=code_info.status,
+                                content={"status": "fail",
+                                         "code": code_info.code, 
+                                         "message": code_info.message})
+    # 기타 예외
+    return JSONResponse(status_code=status.HTTP_418_IM_A_TEAPOT,
+                        content={"status": "fail",
+                                 "code": "INVALID_REQ",
+                                 "message": str(object=exc.errors())})
 
 
-# 로그인 API [POST  https://{Server DNS}/api/auth/log-in]
+
+# 회원가입 API [HTTP POST : https://{ServerDNS}/api/auth/sign-up]
+@router.post("/auth/sign-up",
+             status.HTTP_201_CREATED,
+             summary="Sign Up",
+             description="신규 사용자 회원가입 API. 이름, ID, PW 를 입력받음")
+async def sign_up(request: SignUpRequest, db: AsyncSession = Depends(AsyncDB.get_users)) -> SignUpResponse:
+    # 필드의 존재 여부, 형식 검사, pw 와 pw_confirm 확인은 pydantic model 단에서 완료 -> user_id 의 중복 확인만 수행
+    user_id = request.user_id
+    if await AuthService.check_duplicate(db, user_id=user_id):
+        raise HTTPException(SignUpCode.USER_EXISTS.value.status,
+                            detail={"code": SignUpCode.USER_EXISTS.value.code,
+                                    "message": SignUpCode.USER_EXISTS.value.message})
+    # 비밀번호 해싱 및 DB 저장
+    user = await AuthService.register_user(db, request)
+    # api response
+    return SignUpResponse(status="success",
+                          user_name=user.user_name,
+                          user_id=user.user_id,
+                          message=SignUpCode.CREATED.value.message,
+                          code=SignUpCode.CREATED.value.code)
+
+
+
+# 로그인 API [HTTP POST : https://{ServerDNS}/api/auth/log-in]
 @router.post("/auth/log-in", 
-             status_code= status.HTTP_200_OK, 
-             summary= "로그인", 
+             status_code= status.HTTP_200_OK,
+             summary= "Log-in", 
              description= "사용자의 ID, PW 를 입력받음")
-def login(login_in: LogInRequest, response: Response, db: Session = Depends(get_users_db)) -> LogInResponse:
-    user = authenticate_user(db, login_in.user_id, login_in.password)
+async def login(request: LogInRequest, response: Response, users: AsyncSession = Depends(AsyncDB.get_users), tokens: AsyncSession = Depends(AsyncDB.get_refresh_tokens)) -> LogInResponse | JSONResponse:
+    # ID 와 PW 가 일치한 사용자 조회
+    user = await AuthService.find_user(users, request=request)
     if not user:
-        raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "아이디/비밀번호 불일치")
-    access_token = create_access_token(data= {"user_id": user.user_id})
-    refresh_token = create_refresh_token(db, data={"user_id": user.user_id})
-    # 현재 Users, RefreshTokens 테이블은 동일DB
-    add_refresh_token(db, refresh_token, user.user_id, login_in.device_id)
+        raise HTTPException(status_code=LogInCode.USER_NOT_FOUND.value.status,
+                            detail={"code": LogInCode.USER_NOT_FOUND.value.code,
+                                    "message": LogInCode.USER_NOT_FOUND.value.message})
+    access_token = Token.create_access_token(user.user_id)
+    refresh_token = Token.create_refresh_token( user.user_id)
+    await AuthService.add_refresh_token(tokens, refresh_token, user.user_id)
     # response - cookie에 JWT ACCESS TOKEN 설정
-    response.set_cookie( key= ACCESS,
-                         value= access_token,
-                         httponly= True,     # JS로 접근 불가, XSS 공격 방지
-                         secure= True,       # HTTPS에서만 전송
-                         samesite= "strict", # CSRF 공격 방지, BrainBuddy 도메인에서 출발한 요청에만 브라우저가 쿠키 첨부 !
-                         max_age= ACCESS_TOKEN_EXPIRE_SEC,
-                         path= "/")
-    # response - cookie에 JWT REFRESH TOKEN 설정
-    response.set_cookie( key= REFRESH,
-                         value= refresh_token,
-                         httponly= True,
-                         secure= True,
-                         samesite= "strict",
-                         max_age= REFRESH_TOKEN_EXPIRE_SEC,
-                         path= "/")
-    return LogInResponse( status= "success",
-                          user_name= user.user_name,
-                          user_id= user.user_id)
+    AuthService.set_cookies(response, access_token, refresh_token)
+    return LogInResponse(status= "success",
+                         user_name= user.user_name,
+                         user_id= user.user_id,
+                         code= LogInCode.LOGIN_SUCCESS.value.code,
+                         message= LogInCode.LOGIN_SUCCESS.value.message)
 
 
-# Access Token Refresh 요청 API [POST  https://{Server DNS}/api/auth/refresh]
+
+# JWT Token 재발급 요청 API [HTTP POST : https://{ServerDNS}/api/auth/refresh]
 @router.post("/auth/refresh", 
              status_code= status.HTTP_200_OK,
-             summary= "JWT ACCESS 토큰 재발급", 
-             description= "Refresh 토큰의 유효성 검사 후 새로운 Access / Refresh 토큰을 반환")
-def renew_access_token(request: Request, response: Response, db: Session = Depends(get_users_db)) -> RenewResponse:
-    refresh_token = request.cookies.get(REFRESH)
-    erase_refresh_token(db, refresh_token)
-    if not refresh_token:
-        raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "There is no Refresh Token in cookie. Login plz")
-    try:
-        refresh_payload = check_refresh_token(refresh_token) # JWT 검증 및 payload 추출
-        user_id = refresh_payload.get("user_id")
-        if not user_id:
-            raise HTTPException(status_code= status.HTTP_500_INTERNAL_SERVER_ERROR, detail="토큰 decoding 실패")
-        user = db.query(User).filter(User.user_id == user_id).first()
-        # 존재하지 않는 사용자
-        if user is None:
-            raise HTTPException(status_code= status.HTTP_404_UNAUTHORIZED, detail="없는데요 ?")
-        # 영구정지/차단된 사용자
-        if user.status == "banned":   # 또는 user.is_active == False 등
-            raise HTTPException(status_code= status.HTTP_403_FORBIDDEN, detail="정지된 사용자")
-    except Exception as e:
-        raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "Refresh Token is not valid. Login plz.")
-    # 새로운 ACCESS 토큰 생성
-    new_access_token = create_access_token({"user_id": user_id})
-    new_refresh_token = create_refresh_token(data={"user_id": user_id})
-    add_refresh_token(db, new_refresh_token, user.user_id)
-    # 새로운 ACCESS, REFRESH 토큰을 쿠키에 httpOnly, secure로 발급
-    response.set_cookie( key= ACCESS,
-                         value= new_access_token,
-                         httponly= True,
-                         secure= True,
-                         samesite= "strict",
-                         max_age= ACCESS_TOKEN_EXPIRE_SEC,
-                         path= "/" )
-    response.set_cookie( key= REFRESH,
-                         value= new_refresh_token,
-                         httponly= True,
-                         secure= True,
-                         samesite= "strict",
-                         max_age= REFRESH_TOKEN_EXPIRE_SEC,
-                         path= "/")
-    return RenewResponse(status= "success")
-        
+             summary= "Refresh Tokens", 
+             description= "사용자의 Access / Refresh Tokens 를 쿠키를 통해 입력받음")
+async def renew_tokens(request: Request, response: Response, db: AsyncSession = Depends(AsyncDB.get_refresh_tokens), user_id: str = Depends(get_current_user)) -> RenewResponse:
+    old_access_token = request.cookies.get(ACCESS)
+    old_refresh_token = request.cookies.get(REFRESH)
+    # 두 token 모두 존재, 모든 claim 검증, user_id 일치 확인
+    if not await Token.is_normal_tokens(db, old_access_token, old_refresh_token, user_id):
+        raise HTTPException(status_code=TokenAuth.TOKEN_INVALID.value.status,
+                                    detail={"code" : TokenAuth.TOKEN_INVALID.value.code,
+                                            "message" : TokenAuth.TOKEN_INVALID.value.message})
+    # Refresh 토큰의 만료 여부 확인
+    if Token.is_refresh_expired(db, old_refresh_token):
+        raise HTTPException(status_code=TokenAuth.LOGIN_AGAIN.value.status,
+                            detail={"code": TokenAuth.LOGIN_AGAIN.value.code,
+                                    "message": TokenAuth.LOGIN_AGAIN.value.message})
+    # Refresh 토큰의 revoked 여부 확인
+    if await Token.is_refresh_revoked(db, old_access_token, old_refresh_token):
+        raise HTTPException(status_code=TokenAuth.TOKEN_INVALID.value.status,
+                                    detail={"code" : TokenAuth.TOKEN_INVALID.value.code,
+                                            "message" : TokenAuth.TOKEN_INVALID.value.message})
+    # 사용자 검증
+    if not await AuthService.check_user(db, user_id):
+        raise HTTPException(TokenAuth.USER_NOT_FOUND.value.status,
+                            detail={"code": TokenAuth.USER_NOT_FOUND.value.code,
+                                    "message": TokenAuth.USER_NOT_FOUND.value.message})
+    access_token = Token.create_access_token(user_id)
+    refresh_token = Token.create_refresh_token(user_id)
+    await AuthService.add_refresh_token(db, refresh_token, user_id)
+    AuthService.set_cookies(response, access_token, refresh_token)
+    return RenewResponse(status="success",
+                         code= TokenAuth.REFRESHED.value.code,
+                         message= TokenAuth.REFRESHED.value.message)
 
-# 로그아웃 API [POST  https://{Server DNS}/api/auth/log-out]
-@router.post("/auth/log-out", 
-             status_code= status.HTTP_200_OK,
-             summary= "로그아웃", 
-             description= "JWT/Refresh 토큰 블랙리스트 등록 및 쿠키 삭제")
-def logout(request: Request, response: Response, db: Session = Depends(get_users_db)) -> LogOutResponse:
-    # 쿠키에서 토큰 추출
-    token = request.cookies.get(ACCESS)
-    refresh_token = request.cookies.get(REFRESH)
-    if not token or not refresh_token:
-        raise HTTPException(status_code= status.HTTP_403_FORBIDDEN, detail= "로그인 상태가 아닙니다.")
-    # 토큰에서 jti 추출 후 JTI-블랙리스트 등록
-    if token:
-        jti, exp = parse_token(token)
-        if datetime.now() > exp :
-            raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "이미 로그아웃 된 상태")
-        else:
-            blacklist_token(jti, exp) # ACCESS token 블랙리스트에 등록
-    if refresh_token:
-        jti_r, exp_r = parse_token(refresh_token)
-        blacklist_token(jti_r, exp_r) # REFRESH token 도 블랙리스트 처리
-        # 사용자의 refresh_token DB 에서 삭제, 만료 또는 변조되었더라도 UX 고려 로그아웃 처리
-        erase_refresh_token(db, refresh_token)
+
+
+# LogOut API [HTTP POST : https://{ServerDNS}/api/auth/log-out]
+@router.post("/auth/log-out",
+             status_code=status.HTTP_200_OK,
+             summary="Log-Out",
+             description="사용자의 로그아웃")
+async def logout(request: Request, response: Response, db: AsyncSession = Depends(AsyncDB.get_refresh_tokens)) -> LogOutResponse:
+    access_token = request.cookies.get("access_token")
+    refresh_token = request.cookies.get("refresh_token")
+    user_id = Token.parse_user_id(access_token)
+    # 검증
+    if not await Token.is_normal_tokens(db, access_token, refresh_token, user_id):
+        raise HTTPException(status_code=TokenAuth.TOKEN_INVALID.value.status,
+                            detail={"code" : TokenAuth.TOKEN_INVALID.value.code,
+                                    "message" : TokenAuth.TOKEN_INVALID.value.message})
+    await AuthService.handle_logout_tokens(db, access_token, refresh_token)
     # 쿠키 삭제
-    response.delete_cookie(key= ACCESS, path="/")
-    response.delete_cookie(key= REFRESH, path="/")
-    return LogOutResponse(status= "success", message= "로그아웃 되었습니다.")
+    AuthService.clear_cookies(response)
+    return LogOutResponse(status="success",
+                          code="LOGOUT",
+                          message="You have been logged out successfully.")
 
 
-# 회원탈퇴 API [DELETE  https://{Server DNS}/api/auth/delete-account]
-@router.delete("/auth/delete-account",
-               status_code= status.HTTP_200_OK,
-               summary= "회원탈퇴",
-               description= "가입한 사용자의 회원 탈퇴")
-def delete_user(request: Request, response: Response, db: Session = Depends(get_users_db)) -> WithdrawResponse:
-    token = request.cookies.get(ACCESS)
-    refresh_token = request.cookies.get(REFRESH)
-    user_id = request.body["user_id"]
-    if not token or not refresh_token:
-        raise HTTPException(status_code= status.HTTP_403_FORBIDDEN, detail= "토큰이 존재하지 않습니다.")
-    try:
-        payload = get_payload(token)
-        user_id = payload.get("user_id")
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="토큰이 유효하지 않습니다.")
-    user = get_user_by_id(db, user_id)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="존재하지 않는 사용자입니다.")
-    else:
-        try:
-            erase_user_by_id(db, user_id)
-        except Exception:
-            raise HTTPException(status_code= status.HTTP_500_INTERNAL_SERVER_ERROR, detail="회원 탈퇴 처리 중 서버 오류가 발생했습니다.")
-    try:
-        jti, exp = parse_token(token)
-        blacklist_token(jti, exp)
-    except Exception:
-        pass
-    try:
-        jti_r, exp_r = parse_token(refresh_token)
-        blacklist_token(jti_r, exp_r)
-        erase_refresh_token(db, refresh_token)
-    except Exception:
-        pass
-    # 쿠키 삭제
-    response.delete_cookie(key= ACCESS, path= "/")
-    response.delete_cookie(key= REFRESH, path="/")
-    return WithdrawResponse(status="success", message="회원 탈퇴가 정상 처리되었습니다.")
+
+# 회원탈퇴 API [HTTP DELETE : https://{ServerDNS}/api/auth/withdraw]
+@router.delete(path="/auth/withdraw",
+               status_code=status.HTTP_200_OK,
+               summary="Account Withdrawal",
+               description="Front 단에서 추가 확인(id 와 pw)을 거쳐 로그인한 사용자의 계정을 영구적으로 삭제")
+async def withdraw_user(request: Request, body: WithdrawReq, response: Response, 
+                        user_id:str = Depends(get_current_user), 
+                        db: AsyncSession = Depends(AsyncDB.get_users)) -> WithdrawRes:
+    if not await AuthService.withdraw_check_user(db, user_id, WithdrawReq.user_id, WithdrawReq.user_pw):
+        raise HTTPException(status_code=WithdrawCode.INVALID_FORMAT.value.status,
+                            detail={"code" : WithdrawCode.INVALID_FORMAT.value.code,
+                                    "message" : WithdrawCode.INVALID_FORMAT.value.message})
+    AuthService.clear_cookies(response)
+    return WithdrawRes(status="success",
+                       code=WithdrawCode.WITHDRAW.value.code,
+                       message=WithdrawCode.WITHDRAW.value.message)
