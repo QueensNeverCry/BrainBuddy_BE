@@ -18,3 +18,5 @@ REDIS_PORT = os.getenv("REDIS_PORT")
 BLACK_LIST_ID = os.getenv("BLACK_LIST_ID")
 EXIST = os.getenv("EXIST")
 MYSQL_DB_URL = os.getenv("MYSQL_DB_URL")
+
+COMPONENT_CNT = 3

@@ -12,7 +12,7 @@ class RefreshToken(Base):
     
     id = Column(Integer, primary_key= True, autoincrement= True)
     jti = Column(String(512), nullable= False, unique= True)
-    user_id = Column(String(20), nullable= False)
+    email = Column(String(32), nullable= False)
     issued_at = Column(DateTime, nullable= False, default= func.now())
     expires_at = Column(DateTime, nullable= False)
     revoked = Column(Boolean, default= False)

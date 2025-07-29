@@ -6,58 +6,54 @@ import bcrypt
 from src.core.security import Token
 from src.core.repository import AccessBlackList, RefreshTokensTable
 from src.models.users import User
+from src.models.score import TotalScore
 from src.core.config import ACCESS, ACCESS_TOKEN_EXPIRE_SEC, REFRESH, REFRESH_TOKEN_EXPIRE_SEC
 
 from src.api.auth.schemas import SignUpRequest, LogInRequest
-from src.api.auth.repository import Users, RefreshTokens
+from src.api.auth.repository import Users, RefreshTokens, TotalScore
 
 class AuthService:
     @staticmethod
-    async def check_duplicate(db: AsyncSession, user_id: str) -> bool:
-        return await Users.exists_user_id(db, user_id=user_id)
+    async def check_duplicate(db: AsyncSession, email: str, user_name: str) -> bool:
+        return await Users.exists_user_email(db, user_id=email) and Users.exists_user_name(db, user_name)
     
     @staticmethod
-    async def register_user(db: AsyncSession, request: SignUpRequest) -> User:
+    async def register_user(users_db: AsyncSession, score_db: AsyncSession, req: SignUpRequest) -> User:
         # plain PW → Hashing
-        hashed_pw = bcrypt.hashpw(request.user_pw.encode(), bcrypt.gensalt()).decode()
-        request.user_pw = request.user_pw_confirm = None
-        # User entity 생성
-        user = User(user_id=request.user_id,
-                    user_name=request.user_name,
-                    user_pw=hashed_pw)
-        # DB 저장
-        async with db.begin():
-            db.add(user)
-        await db.refresh(user)
-        return user
-    
+        hashed_pw = bcrypt.hashpw(req.user_pw.encode(), bcrypt.gensalt()).decode()
+        req.user_pw = req.user_pw_confirm = None
+        # DB 저장 - Users 테이블
+        await Users.register_user(users_db, User(email=req.email,user_name=req.user_name,user_pw=hashed_pw))
+        # DB 저장 - Score 테이블
+        await TotalScore.register_user(score_db, TotalScore(email=req.email))
+        
     @staticmethod
     async def find_user(db: AsyncSession, request: LogInRequest) -> User | None:
-        user = await Users.get_user(db, request.user_id)
+        user = await Users.get_user(db, request.email)
         if not user:
             return None
-        if bcrypt.checkpw(request.user_pw.encode(), user.hashed_password.encode()):
+        if bcrypt.checkpw(request.user_pw.encode(), user.user_pw.encode()):
             return user
         else:
             return None
     
     @staticmethod
-    async def check_user(db: AsyncSession, user_id: str) -> bool:
-        if await Users.exists_user_id(db, user_id):
+    async def check_user(db: AsyncSession, email: str) -> bool:
+        if await Users.exists_user_email(db, email):
             return False
-        if not await Users.is_active_user(db, user_id):
+        if not await Users.is_active_user(db, email):
             return False
         return True
 
     @staticmethod
-    async def add_refresh_token(db: AsyncSession, refresh_token: str, user_id: str) -> None:
+    async def add_refresh_token(db: AsyncSession, refresh_token: str, email: str) -> None:
         # 새 토큰 정보 추출
         payload = Token.get_payload(refresh_token)
         # 해당 사용자의 만료(expired) 또는 폐기(revoked) 토큰 먼저 삭제
-        await RefreshTokens.purge_user_tokens(db, user_id)
+        await RefreshTokens.purge_user_tokens(db, email)
         # 동일 jti 토큰이 있으면 update, 없다면 insert (신규 추가)
-        if not await RefreshTokens.update_token(db, payload, user_id):
-            RefreshTokens.insert_token(db, payload, user_id)
+        if not await RefreshTokens.update_token(db, payload, email):
+            RefreshTokens.insert_token(db, payload, email)
     
     @staticmethod
     def set_cookies(response: Response, access_token: str, refresh_token: str) -> None:
@@ -82,19 +78,21 @@ class AuthService:
         AccessBlackList.add_blacklist_token(Token.parse_jti(access), Token.parse_exp(access))
 
     @staticmethod
-    async def withdraw_check_user(db: AsyncSession, id: str, _id: str, pw: str) -> bool:
-        if id != _id:
+    async def withdraw_check_user(db: AsyncSession, email: str, __email: str, pw: str) -> bool:
+        if email != __email:
             return False
-        # id, pw 검증
-        user = await Users.get_user(db, id)
+        # email, pw 검증
+        user = await Users.get_user(db, email)
         if not user:
             return False
-        if not await Users.is_active_user(db, id):
+        if not await Users.is_active_user(db, email):
             return False
         if not bcrypt.checkpw(pw.encode(), user.user_pw.encode()):
             return False
         # Users 테이블에서 해당 사용자 삭제
-        await Users.delete_user(db, id)
+        await Users.delete_user(db, email)
+        # Score 테이블에서 해당 사용자의 모든 기록 삭제
+        # Score 테이블 완료시 작성... (완료되면 주석 삭제)
         return True
     
     @staticmethod

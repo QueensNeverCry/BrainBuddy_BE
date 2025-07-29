@@ -15,3 +15,4 @@ AsyncSessionLocal = async_sessionmaker( bind=async_engine,     # bind the async 
 
 UsersAsyncSession = AsyncSessionLocal
 RefreshTokensAsyncSession = AsyncSessionLocal
+ScoreTablesAsyncSession = AsyncSessionLocal
