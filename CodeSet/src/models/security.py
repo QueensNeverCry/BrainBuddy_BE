@@ -11,7 +11,7 @@ class RefreshToken(Base):
     __tablename__ = "RefreshTokens" 
     
     id = Column(Integer, primary_key= True, autoincrement= True)
-    jti = Column(String(512), nullable= False, unique= True)
+    jti = Column(String(36), nullable= False, unique= True)
     email = Column(String(32), nullable= False)
     issued_at = Column(DateTime, nullable= False, default= func.now())
     expires_at = Column(DateTime, nullable= False)

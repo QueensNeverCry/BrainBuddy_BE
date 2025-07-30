@@ -25,7 +25,7 @@ class AuthService:
         # DB 저장 - Users 테이블
         await Users.register_user(users_db, User(email=req.email,user_name=req.user_name,user_pw=hashed_pw))
         # DB 저장 - Score 테이블
-        await TotalScore.register_user(score_db, TotalScore(email=req.email))
+        await TotalScore.register_user(score_db, TotalScore(email=req.user_name))
         
     @staticmethod
     async def find_user(db: AsyncSession, request: LogInRequest) -> User | None:
