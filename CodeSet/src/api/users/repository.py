@@ -27,35 +27,29 @@ class Users:
         result = await db.execute(query)
         return result.scalar_one()
 
-    @staticmethod
-    async def get_email_name_map(db: AsyncSession) -> dict:
-        query = select(User.email, User.user_name).where(User.status == "active")
-        result = await db.execute(query)
-        rows = result.all()
-        return {email: user_name for email, user_name in rows}
 
 class Scores:
     @staticmethod
     async def sort_total_score(db: AsyncSession) -> List[UserRankingItem]:
-        query = select(TotalScore.email, TotalScore.total_score).order_by(desc(TotalScore.total_score))
+        query = select(TotalScore.user_name, TotalScore.total_score).order_by(desc(TotalScore.total_score))
         result = await db.execute(query)
         rows = result.all()
         rank_list = []
-        for rank, (email, total_score) in enumerate(rows, start=1):  # 랭킹 1부터
-            rank_list.append(UserRankingItem(rank=rank, score=total_score, user_name=email))
+        for rank, (name, total_score) in enumerate(rows, start=1):  # 랭킹 1부터
+            rank_list.append(UserRankingItem(rank=rank, score=total_score, user_name=name))
         return rank_list
     
     @staticmethod
-    async def get_TotalScore_record(db: AsyncSession, email: str) -> TotalScore:
-        query = select(TotalScore).where(TotalScore.email==email)
+    async def get_TotalScore_record(db: AsyncSession, name: str) -> TotalScore:
+        query = select(TotalScore).where(TotalScore.user_name==name)
         result = await db.execute(query)
         record = result.one_or_none()
         return record
 
     @staticmethod
-    async def get_user_rank(db: AsyncSession, email: str) -> int | None:
+    async def get_user_rank(db: AsyncSession, name: str) -> int | None:
         # 먼저 해당 유저의 total_score를 구함
-        score_query = select(TotalScore.total_score).where(TotalScore.email == email)
+        score_query = select(TotalScore.total_score).where(TotalScore.user_name == name)
         user_score_result = await db.execute(score_query)
         user_score = user_score_result.scalar_one_or_none()
         if user_score is None or user_score is 0.0:
@@ -63,12 +57,12 @@ class Scores:
         # user_score보다 큰 점수 가진 사람의 수 + 1 = 랭킹
         rank_query = select(func.count()).where(TotalScore.total_score > user_score)
         rank_result = await db.execute(rank_query)
-        higher_count = rank_result.scalar_one()
-        return higher_count + 1
+        higher_cnt = rank_result.scalar_one()
+        return higher_cnt + 1
     
     @staticmethod
-    async def get_recent_records(db: AsyncSession, email: str, cnt: int) -> List[UserDailyScore | None]:
-        query = (select(UserDailyScore).where(UserDailyScore.email == email)
+    async def get_recent_records(db: AsyncSession, name: str, cnt: int) -> List[UserDailyScore | None]:
+        query = (select(UserDailyScore).where(UserDailyScore.user_name == name)
                                             .order_by(UserDailyScore.created_at.desc())
                                             .limit(cnt))
         result = await db.execute(query)

@@ -29,12 +29,7 @@ class RankingService:
 
     # 주간 랭킹 리스트 List 반환
     async def get_ranking_list(users_db: AsyncSession, score_db: AsyncSession) -> List[UserRankingItem]:
-        rank_list = await Scores.sort_total_score(score_db)
-        user_dict = await Users.get_email_name_map(users_db)
-        for item in rank_list:
-            email = item.user_name
-            item.user_name = user_dict.get(email, email)
-        return rank_list
+        return await Scores.sort_total_score(score_db)
 
 
 class MainService:
@@ -42,18 +37,18 @@ class MainService:
         return await Users.get_name(users_db, email)
     
     # fetch main params
-    async def get_main_params(users_db: AsyncSession, score_db: AsyncSession, email: str) -> dict:
+    async def get_main_params(users_db: AsyncSession, score_db: AsyncSession, name: str) -> dict:
         result = {}
-        record = await Scores.get_TotalScore_record(score_db, email)
-        rank = await Scores.get_user_rank(score_db, email)
+        record = await Scores.get_TotalScore_record(score_db, name)
+        rank = await Scores.get_user_rank(score_db, name)
         result["total_users"] = await Users.get_active_cnt(users_db)
         result["avg_focus"] = record.avg_score
         result["total_study_cnt"] = record.total_cnt
         result["rank"] = "-" if not rank else str(rank)
 
     # 사용자에 대한 COMPONENT_CNT 개수의 과거 학습 분석 기록 리스트 반환
-    async def get_history(score_db: AsyncSession, email: str) -> List[UserHistoryItem]:
-        records : List[UserDailyScore] = Scores.get_recent_records(score_db, email, COMPONENT_CNT)
+    async def get_history(score_db: AsyncSession, name: str) -> List[UserHistoryItem]:
+        records : List[UserDailyScore] = Scores.get_recent_records(score_db, name, COMPONENT_CNT)
         result = [UserHistoryItem(date=str(record.score_date) if record is not None else "",
                                   score=record.score if record is not None else 0,
                                   subject=record.subject if record is not None else "",

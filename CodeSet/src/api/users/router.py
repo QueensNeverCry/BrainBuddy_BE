@@ -34,9 +34,10 @@ async def get_weekly_ranking(response: RankingResponse,
 async def get_main_info(email: str = Depends(GetCurrentUser),
                         users_db: AsyncSession = Depends(AsyncDB.get_score_tables),
                         score_db: AsyncSession = Depends(AsyncDB.get_score_tables)) -> MainResponse:
-    params = await MainService.get_main_params(users_db, score_db, email)
+    user_name = MainService.fetch_name(users_db, email)
+    params = await MainService.get_main_params(users_db, score_db, user_name)
     return MainResponse(status="success",
-                        user_name=MainService.fetch_name(users_db, email),
+                        user_name=user_name,
                         total_users=params["total_users"],
                         avg_focus=params["avg_focus"],
                         current_rank=params["rank"],

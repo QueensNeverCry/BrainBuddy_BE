@@ -1,11 +1,11 @@
 from pydantic import BaseModel, ValidationError
 from pydantic import Field, model_validator, field_validator
-
 from typing import Type, Dict, Any
+import re
 
 from src.api.auth.response_code import SignUpCode, LogInCode, WithdrawCode
 
-
+NamePattern = r'^[A-Za-z0-9가-힣_-]{2,16}$'
 
 # 회원가입 Request.body를 pydantic 객체화
 class SignUpRequest(BaseModel):
@@ -24,13 +24,16 @@ class SignUpRequest(BaseModel):
             raise ValueError(SignUpCode.MISSING_REQ.value.code)
         return values
     
-    # Endpoint 도달 전, pydantic 모델로 검증 : name, id, pw 길이 검사
+    # Endpoint 도달 전, pydantic 모델로 검증 : name, id, pw 길이 검사 (name 은 정규표현식으로 형식 검사까지)
     @field_validator("user_name")
     @classmethod
     def check_name_length(cls: Type["SignUpRequest"], name: str) -> str:
         if not (2 <= len(name) <= 16):
             raise ValueError(SignUpCode.INVALID_FORMAT.value.code)
-        return name
+        if re.match(NamePattern, name):
+            return name
+        else:
+            raise ValueError(SignUpCode.INVALID_FORMAT.value.code)
     
     @field_validator("email")
     @classmethod
