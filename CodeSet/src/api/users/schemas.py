@@ -9,6 +9,8 @@ class UserRankingItem(BaseModel):
     rank: int
     score: float
     user_name: str
+    total_cnt: int
+    avg_focus: float
 
 # history 객체의 요소
 class UserHistoryItem(BaseModel):

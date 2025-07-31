@@ -17,11 +17,16 @@ router = APIRouter()
             status_code=status.HTTP_200_OK,
             summary="Weekly User Ranking",
             description="Provides the weekly ranking of users based on their scores over the past 7 days.")
-async def get_weekly_ranking(response: RankingResponse,
-                             db: AsyncSession = Depends(AsyncDB.get_db)) -> RankingResponse:
-    RankingResponse.total_users = await RankingService.get_total_cnt(db)
-    RankingResponse.ranking = await RankingService.get_ranking_list(db)
-    return RankingResponse
+async def get_weekly_ranking(db: AsyncSession = Depends(AsyncDB.get_db)) -> RankingResponse:
+    try:
+        await db.begin()
+        total = await RankingService.get_total_cnt(db)
+        ranking = await RankingService.get_ranking_list(db)
+        return RankingResponse(status="success", total_users=total, ranking=ranking)
+    except:
+        raise HTTPException(status_code=status.HTTP_418_IM_A_TEAPOT,
+                            detail={"code": "DEBUG",
+                                    "message": "Need to branch error handling."})
 
 
 
@@ -31,7 +36,7 @@ async def get_weekly_ranking(response: RankingResponse,
             description="Provides the key data for configuring the user's main page.")
 async def get_main_info(email: str = Depends(GetCurrentUser),
                         db: AsyncSession = Depends(AsyncDB.get_db)) -> MainResponse:
-    user_name = MainService.fetch_name(db, email)
+    user_name = await MainService.fetch_name(db, email)
     params = await MainService.get_main_params(db, user_name)
     return MainResponse(status="success",
                         user_name=user_name,

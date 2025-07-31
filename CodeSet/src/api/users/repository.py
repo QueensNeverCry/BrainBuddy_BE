@@ -31,20 +31,23 @@ class Users:
 class Scores:
     @staticmethod
     async def sort_total_score(db: AsyncSession) -> List[UserRankingItem]:
-        query = select(TotalScore.user_name, TotalScore.total_score).order_by(desc(TotalScore.total_score))
+        query = (select(TotalScore.user_name,
+                        TotalScore.total_score,
+                        TotalScore.avg_score.label("avg_focus"),
+                        TotalScore.total_cnt).order_by(desc(TotalScore.total_score)))
         result = await db.execute(query)
-        rows = result.all()
-        rank_list = []
-        for rank, (name, total_score) in enumerate(rows, start=1):  # 랭킹 1부터
-            rank_list.append(UserRankingItem(rank=rank, score=total_score, user_name=name))
+        rows = result.all()  # List[Tuple[str, float, float, int]]
+        rank_list: List[UserRankingItem] = []
+
+        for rank, (name, total_score, avg_focus, total_cnt) in enumerate(rows, start=1):
+            rank_list.append(UserRankingItem(rank=rank, score=total_score, user_name=name, total_cnt=total_cnt, avg_focus= avg_focus))
         return rank_list
     
     @staticmethod
     async def get_TotalScore_record(db: AsyncSession, name: str) -> TotalScore:
         query = select(TotalScore).where(TotalScore.user_name==name)
         result = await db.execute(query)
-        record = result.one_or_none()
-        return record
+        return result.scalars().one_or_none()
 
     @staticmethod
     async def get_user_rank(db: AsyncSession, name: str) -> int | None:
@@ -63,8 +66,8 @@ class Scores:
     @staticmethod
     async def get_recent_records(db: AsyncSession, name: str, cnt: int) -> List[UserDailyScore | None]:
         query = (select(UserDailyScore).where(UserDailyScore.user_name == name)
-                                            .order_by(UserDailyScore.created_at.desc())
-                                            .limit(cnt))
+                                .order_by(desc(UserDailyScore.score_date),desc(UserDailyScore.start_time))
+                                .limit(cnt))
         result = await db.execute(query)
         records = result.scalars().all()
         if len(records) < cnt:

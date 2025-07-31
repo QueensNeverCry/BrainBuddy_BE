@@ -45,10 +45,11 @@ class MainService:
         result["avg_focus"] = record.avg_score
         result["total_study_cnt"] = record.total_cnt
         result["rank"] = "-" if not rank else str(rank)
+        return result
 
     # 사용자에 대한 COMPONENT_CNT 개수의 과거 학습 분석 기록 리스트 반환
     async def get_history(db: AsyncSession, name: str) -> List[UserHistoryItem]:
-        records : List[UserDailyScore] = Scores.get_recent_records(db, name, COMPONENT_CNT)
+        records : List[UserDailyScore] = await Scores.get_recent_records(db, name, COMPONENT_CNT)
         result = [UserHistoryItem(date=str(record.score_date) if record is not None else "",
                                   score=record.score if record is not None else 0,
                                   subject=record.subject if record is not None else "",
