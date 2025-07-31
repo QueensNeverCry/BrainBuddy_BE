@@ -37,10 +37,9 @@ class RefreshTokensTable:
         query = (update(RefreshToken).where(RefreshToken.jti == jti)
                                         .values(revoked=True)
                                         .execution_options(synchronize_session="fetch"))
-        # 실행 및 커밋
         try:
             await db.execute(query)
-            await db.commit()
+            await db.flush()
         except SQLAlchemyError:
             await db.rollback()
             raise HTTPException(status_code=TokenAuth.SERVER_ERROR.value.status,

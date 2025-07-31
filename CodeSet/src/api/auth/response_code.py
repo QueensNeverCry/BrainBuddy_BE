@@ -6,6 +6,8 @@ class CodeInfo(NamedTuple):
     message: str
     status: int
 
+# --- DB 관련 ---
+
 # --- 회원가입 ---
 class SignUpCode(Enum):
     CREATED = CodeInfo("CREATED", "Sign-Up Completed.", 201)

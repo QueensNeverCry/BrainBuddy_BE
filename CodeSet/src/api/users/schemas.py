@@ -1,9 +1,7 @@
 from pydantic import BaseModel, ValidationError
 from pydantic import Field, model_validator, field_validator
 
-from typing import Type, Dict, List, Any
-
-from src.api.users.response_code import SignUpCode, LogInCode, WithdrawCode
+from typing import Type, Dict, List
 
 
 # ranking 객체의 요소
