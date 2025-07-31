@@ -1,9 +1,6 @@
-# src/models/users.py
 from sqlalchemy import Column, String, Integer, DateTime, Boolean, func
-from sqlalchemy.ext.declarative import declarative_base
 
-
-Base = declarative_base()
+from src.models.db import Base
 
 
 # MySQL DB 의 Users 테이블에 대한 ORM 객체

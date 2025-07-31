@@ -9,10 +9,10 @@ NamePattern = r'^[A-Za-z0-9가-힣_-]{2,16}$'
 
 # 회원가입 Request.body를 pydantic 객체화
 class SignUpRequest(BaseModel):
-    email: str = Field(..., min_length=5, max_length=32)
-    user_name: str = Field(..., min_length=2, max_length=16)
-    user_pw: str = Field(...,min_length=8, max_length=16)
-    user_pw_confirm: str = Field(...,min_length=8, max_length=16)
+    email: str = Field(...)
+    user_name: str = Field(...)
+    user_pw: str = Field(...)
+    user_pw_confirm: str = Field(...)
     
     # Endpoint 도달 전, pydantic 모델로 검증 : 모든 field 값 존재 확인
     @model_validator(mode="before")
@@ -38,21 +38,21 @@ class SignUpRequest(BaseModel):
     @field_validator("email")
     @classmethod
     def check_id_length(cls: Type["SignUpRequest"], email: str) -> str:
-        if not (5 <= len(id) <= 32):
+        if not (5 <= len(email) <= 32):
             raise ValueError(SignUpCode.INVALID_FORMAT.value.code)
         return email
     
     @field_validator("user_pw")
     @classmethod
     def check_pw_length(cls: Type["SignUpRequest"], pw: str) -> str:
-        if not (8 <= len(pw) <= 16):
+        if not (8 <= len(pw) <= 24):
             raise ValueError(SignUpCode.INVALID_FORMAT.value.code)
         return pw
     
     @field_validator("user_pw_confirm")
     @classmethod
     def check_pw_length(cls: Type["SignUpRequest"], pw_confirm: str) -> str:
-        if not (8 <= len(pw_confirm) <= 16):
+        if not (8 <= len(pw_confirm) <= 24):
             raise ValueError(SignUpCode.INVALID_FORMAT.value.code)
         return pw_confirm
     
@@ -60,7 +60,7 @@ class SignUpRequest(BaseModel):
     @model_validator(mode="after")
     @classmethod
     def check_pw_match(cls: Type["SignUpRequest"], values: SignUpCode) -> SignUpCode:
-        if values.get("user_pw") != values.get("user_pw_confirm"):
+        if values.user_pw != values.user_pw_confirm:
             raise ValueError(SignUpCode.INVALID_PW.value.code)
         return values
 
@@ -75,8 +75,8 @@ class SignUpResponse(BaseModel):
 
 # 로그인 Request
 class LogInRequest(BaseModel):
-    email: str = Field(..., min_length=5, max_length=32)
-    user_pw: str = Field(...,min_length=8, max_length=16)
+    email: str = Field(...)
+    user_pw: str = Field(...)
 
     # Endpoint 도달 전, pydantic 모델로 검증 : 모든 field 값 존재 확인
     @model_validator(mode="before")
@@ -98,14 +98,14 @@ class LogInRequest(BaseModel):
     @field_validator("user_pw")
     @classmethod
     def check_pw_length(cls: Type["LogInRequest"], pw: str) -> str:
-        if not (8 <= len(pw) <= 16):
+        if not (8 <= len(pw) <= 24):
             raise ValueError(LogInCode.WRONG_FORMAT.value.code)
         return pw
     
 # 로그인 Response
 class LogInResponse(BaseModel):
     status: str = Field(...)
-    user_name: str = Field(..., min_length=2)
+    user_name: str = Field(...)
     message: str = Field(...)
     code: str = Field(...)
 
@@ -129,8 +129,8 @@ class LogOutResponse(BaseModel):
 
 # 회원 탈퇴 Request.body
 class WithdrawReq(BaseModel):
-    email: str = Field(..., min_length=5, max_length=32)
-    user_pw: str = Field(...,min_length=8, max_length=16)
+    email: str = Field(...)
+    user_pw: str = Field(...)
 
     # Endpoint 도달 전, pydantic 모델로 검증 : 모든 field 값 존재 확인
     @model_validator(mode="before")
@@ -152,7 +152,7 @@ class WithdrawReq(BaseModel):
     @field_validator("user_pw")
     @classmethod
     def check_pw_length(cls: Type["WithdrawReq"], pw: str) -> str:
-        if not (8 <= len(pw) <= 16):
+        if not (8 <= len(pw) <= 24):
             raise ValueError(WithdrawCode.INVALID_FORMAT.value.code)
         return pw
 

@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 import uuid
 
 from src.core.config import JWT_SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_SEC, REFRESH_TOKEN_EXPIRE_SEC, ACCESS_TYPE, REFRESH_TYPE, ISSUER
-from src.core.response_code import TokenIssueCode, TokenAuth
+from src.core.response_code import TokenAuth
 from src.core.repository import AccessBlackList, RefreshTokensTable
 
 
@@ -31,8 +31,8 @@ class Token:
     def create_access_token(email: str) -> str:
         now = datetime.now(timezone.utc)
         expire = now + timedelta(seconds= ACCESS_TOKEN_EXPIRE_SEC)
-        payload = {"iat": now,
-                   "exp": expire,
+        payload = {"iat": int(now.timestamp()),
+                   "exp": int(expire.timestamp()),
                    "jti": str(uuid.uuid4()),
                    "sub": email,
                    "typ": ACCESS_TYPE,
@@ -41,28 +41,28 @@ class Token:
             access_token = jwt.encode(claims= payload, key= JWT_SECRET_KEY, algorithm= JWT_ALGORITHM)
             return access_token
         except JWTError as e:
-            raise HTTPException(status_code= TokenIssueCode.TOKEN_ISSUE_FAILED.value.status,
-                                detail={"code" : TokenIssueCode.TOKEN_ISSUE_FAILED.value.code,
-                                        "message" : TokenIssueCode.TOKEN_ISSUE_FAILED.value.message})
+            raise HTTPException(status_code= TokenAuth.SERVER_ERROR.value.status,
+                                detail={"code" : TokenAuth.SERVER_ERROR.value.code,
+                                        "message" : TokenAuth.SERVER_ERROR.value.message})
 
     # JWT REFRESH 토큰 생성
     @staticmethod
     def create_refresh_token(email: str) -> str:
         now = datetime.now(timezone.utc)
         expire = now + timedelta(seconds= REFRESH_TOKEN_EXPIRE_SEC)
-        payload = {"iat": now,
-                   "exp": expire,
+        payload = {"iat": int(now.timestamp()),
+                   "exp": int(expire.timestamp()),
                    "jti": str(uuid.uuid4()),
                    "sub": email,
                    "typ": REFRESH_TYPE,
                    "iss": ISSUER}
         try:
-            refresh_token = jwt.encode(payload, key= JWT_SECRET_KEY, algorithm= [JWT_ALGORITHM])
+            refresh_token = jwt.encode(payload, key= JWT_SECRET_KEY, algorithm= JWT_ALGORITHM)
             return refresh_token
         except JWTError as e:
-            raise HTTPException(status_code= TokenIssueCode.TOKEN_ISSUE_FAILED.value.status,
-                                detail={"code" : TokenIssueCode.TOKEN_ISSUE_FAILED.value.code,
-                                        "message" : TokenIssueCode.TOKEN_ISSUE_FAILED.value.message})
+            raise HTTPException(status_code= TokenAuth.SERVER_ERROR.value.status,
+                                detail={"code" : TokenAuth.SERVER_ERROR.value.code,
+                                        "message" : TokenAuth.SERVER_ERROR.value.message})
 
     # 두 token 모든 claim 검증, user_id 일치 확인
     @staticmethod

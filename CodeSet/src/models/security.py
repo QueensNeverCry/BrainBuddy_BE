@@ -1,9 +1,7 @@
 # src/models/security.py
 from sqlalchemy import Column, String, Integer, DateTime, Boolean, func
-from sqlalchemy.ext.declarative import declarative_base
 
-
-Base = declarative_base()
+from src.models.db import Base
 
 
 # 장기 인증 상태의 안전한 관리를 위해 RefreshToken 은 서버 내 DB table을 이용하여 관리 -> RTR 방식

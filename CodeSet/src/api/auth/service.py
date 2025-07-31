@@ -1,6 +1,5 @@
 from fastapi import Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timezone
 import bcrypt
 
 from src.core.security import Token
@@ -10,22 +9,22 @@ from src.models.score import TotalScore
 from src.core.config import ACCESS, ACCESS_TOKEN_EXPIRE_SEC, REFRESH, REFRESH_TOKEN_EXPIRE_SEC
 
 from src.api.auth.schemas import SignUpRequest, LogInRequest
-from src.api.auth.repository import Users, RefreshTokens, TotalScore
+from src.api.auth.repository import Users, RefreshTokens, TotalScoreDB
 
 class AuthService:
     @staticmethod
     async def check_duplicate(db: AsyncSession, email: str, user_name: str) -> bool:
-        return await Users.exists_user_email(db, user_id=email) and Users.exists_user_name(db, user_name)
+        return (await Users.exists_user_email(db, email)) or (await Users.exists_user_name(db, user_name))
     
     @staticmethod
-    async def register_user(users_db: AsyncSession, score_db: AsyncSession, req: SignUpRequest) -> User:
+    async def register_user(db: AsyncSession, req: SignUpRequest) -> None:
         # plain PW → Hashing
         hashed_pw = bcrypt.hashpw(req.user_pw.encode(), bcrypt.gensalt()).decode()
         req.user_pw = req.user_pw_confirm = None
         # DB 저장 - Users 테이블
-        await Users.register_user(users_db, User(email=req.email,user_name=req.user_name,user_pw=hashed_pw))
+        await Users.register_user(db, User(email=req.email,user_name=req.user_name,user_pw=hashed_pw))
         # DB 저장 - Score 테이블
-        await TotalScore.register_user(score_db, TotalScore(email=req.user_name))
+        await TotalScoreDB.register_user(db, TotalScore(user_name=req.user_name))
         
     @staticmethod
     async def find_user(db: AsyncSession, request: LogInRequest) -> User | None:
@@ -39,11 +38,9 @@ class AuthService:
     
     @staticmethod
     async def check_user(db: AsyncSession, email: str) -> bool:
-        if await Users.exists_user_email(db, email):
-            return False
-        if not await Users.is_active_user(db, email):
-            return False
-        return True
+        res1 = await Users.exists_user_email(db, email)
+        res2 = await Users.is_active_user(db, email)
+        return res1 and res2
 
     @staticmethod
     async def add_refresh_token(db: AsyncSession, refresh_token: str, email: str) -> None:
@@ -53,7 +50,7 @@ class AuthService:
         await RefreshTokens.purge_user_tokens(db, email)
         # 동일 jti 토큰이 있으면 update, 없다면 insert (신규 추가)
         if not await RefreshTokens.update_token(db, payload, email):
-            RefreshTokens.insert_token(db, payload, email)
+            await RefreshTokens.insert_token(db, payload, email)
     
     @staticmethod
     def set_cookies(response: Response, access_token: str, refresh_token: str) -> None:
@@ -89,10 +86,10 @@ class AuthService:
             return False
         if not bcrypt.checkpw(pw.encode(), user.user_pw.encode()):
             return False
+        # Score 테이블에서 해당 사용자의 모든 기록 삭제
+        await TotalScoreDB.delete_user(db, user.user_name)
         # Users 테이블에서 해당 사용자 삭제
         await Users.delete_user(db, email)
-        # Score 테이블에서 해당 사용자의 모든 기록 삭제
-        # Score 테이블 완료시 작성... (완료되면 주석 삭제)
         return True
     
     @staticmethod
