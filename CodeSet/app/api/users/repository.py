@@ -5,11 +5,11 @@ from fastapi import HTTPException
 from datetime import datetime, timezone
 from typing import List
 
-from src.models.users import User
-from src.models.score import TotalScore, UserDailyScore
+from app.models.users import User
+from app.models.score import TotalScore, UserDailyScore
 
-from src.api.users.response_code import ScoreDB
-from src.api.users.schemas import UserRankingItem, UserHistoryItem
+from app.api.users.response_code import ScoreDB
+from app.api.users.schemas import UserRankingItem, UserHistoryItem
 
 # Users 테이블
 class Users:
@@ -62,7 +62,9 @@ class Scores:
         rank_result = await db.execute(rank_query)
         higher_cnt = rank_result.scalar_one()
         return higher_cnt + 1
-    
+
+
+class Daily:    
     @staticmethod
     async def get_recent_records(db: AsyncSession, name: str, cnt: int) -> List[UserDailyScore | None]:
         query = (select(UserDailyScore).where(UserDailyScore.user_name == name)
@@ -73,18 +75,21 @@ class Scores:
         if len(records) < cnt:
             records += [None] * (cnt - len(records))
         return records
-
-    # @staticmethod
-    # async def get_user_total_cnt(db: AsyncSession, email: str) -> int:
-    #     query = select(TotalScore).where(TotalScore.email==email)
-    #     result = await db.execute(query)
-    #     rows = result.all()
-    #     return len(rows)
     
-    # @staticmethod
-    # async def get_user_avg(db: AsyncSession, email: str) -> float | None:
-    #     query = select(TotalScore.avg_score).where(TotalScore.email==email)
-    #     result = await db.execute(query)
-    #     value = result.scalar_one_or_none()
-    #     return value
-    
+    @staticmethod
+    async def create_daily_record(db:AsyncSession, name: str, when: datetime, where: str, what: str) -> None:
+        record = UserDailyScore(user_name=name,
+                                score_date=when.date(),
+                                start_time=when.time(),
+                                study_time=None,
+                                subject=what,
+                                location=where)
+        try:
+            db.add(record)
+            await db.flush()
+            await db.refresh(record)
+        except SQLAlchemyError:
+            await db.rollback()
+            raise HTTPException(status_code=ScoreDB.SERVER_ERROR.value.status,
+                                detail={"code": ScoreDB.SERVER_ERROR.value.code,
+                                        "message": ScoreDB.SERVER_ERROR.value.message})

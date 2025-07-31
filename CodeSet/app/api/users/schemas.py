@@ -2,7 +2,7 @@ from pydantic import BaseModel, ValidationError
 from pydantic import Field, model_validator, field_validator
 
 from typing import Type, Dict, List
-
+from datetime import datetime
 
 # ranking 객체의 요소
 class UserRankingItem(BaseModel):
@@ -36,3 +36,11 @@ class MainResponse(BaseModel):
     current_rank: str
     total_study_cnt: int
     history: List[UserHistoryItem]
+
+class StudyPlanRequest(BaseModel):
+    when: datetime = Field(...)
+    where: str     = Field(...)
+    what:  str     = Field(...)
+
+class StudyPlanResponse(BaseModel):
+    status: str

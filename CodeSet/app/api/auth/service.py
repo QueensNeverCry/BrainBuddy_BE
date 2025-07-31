@@ -2,14 +2,14 @@ from fastapi import Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 import bcrypt
 
-from src.core.security import Token
-from src.core.repository import AccessBlackList, RefreshTokensTable
-from src.models.users import User
-from src.models.score import TotalScore
-from src.core.config import ACCESS, ACCESS_TOKEN_EXPIRE_SEC, REFRESH, REFRESH_TOKEN_EXPIRE_SEC
+from app.core.security import Token
+from app.core.repository import AccessBlackList, RefreshTokensTable
+from app.models.users import User
+from app.models.score import TotalScore
+from app.core.config import ACCESS, ACCESS_TOKEN_EXPIRE_SEC, REFRESH, REFRESH_TOKEN_EXPIRE_SEC
 
-from src.api.auth.schemas import SignUpRequest, LogInRequest
-from src.api.auth.repository import Users, RefreshTokens, TotalScoreDB
+from app.api.auth.schemas import SignUpRequest, LogInRequest
+from app.api.auth.repository import Users, RefreshTokens, TotalScoreDB
 
 class AuthService:
     @staticmethod

@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from src.core.config import MYSQL_DB_URL, LOCAL_DB_URL
+from app.core.config import MYSQL_DB_URL, LOCAL_DB_URL
 
 # 비동기 엔진(async engine) 생성
 # # 실제 AWS 운영 DB

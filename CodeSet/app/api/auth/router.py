@@ -3,13 +3,13 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
-from src.core.security import Token
-from src.core.deps import AsyncDB, GetCurrentUser
-from src.core.config import ACCESS, REFRESH
+from app.core.security import Token
+from app.core.deps import AsyncDB, GetCurrentUser
+from app.core.config import ACCESS, REFRESH
 
-from src.api.auth.schemas import SignUpRequest, SignUpResponse, LogInRequest, LogInResponse, RenewResponse, LogOutResponse, WithdrawReq, WithdrawRes
-from src.api.auth.response_code import SignUpCode, LogInCode, TokenAuth, WithdrawCode
-from src.api.auth.service import AuthService
+from app.api.auth.schemas import SignUpRequest, SignUpResponse, LogInRequest, LogInResponse, RenewResponse, LogOutResponse, WithdrawReq, WithdrawRes
+from app.api.auth.response_code import SignUpCode, LogInCode, TokenAuth, WithdrawCode
+from app.api.auth.service import AuthService
 
 
 

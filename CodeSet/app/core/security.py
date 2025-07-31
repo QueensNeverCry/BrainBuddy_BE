@@ -4,9 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone, timedelta
 import uuid
 
-from src.core.config import JWT_SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_SEC, REFRESH_TOKEN_EXPIRE_SEC, ACCESS_TYPE, REFRESH_TYPE, ISSUER
-from src.core.response_code import TokenAuth
-from src.core.repository import AccessBlackList, RefreshTokensTable
+from app.core.config import JWT_SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_SEC, REFRESH_TOKEN_EXPIRE_SEC, ACCESS_TYPE, REFRESH_TYPE, ISSUER
+from app.core.response_code import TokenAuth
+from app.core.repository import AccessBlackList, RefreshTokensTable
 
 
 RequiredClaims = {"sub", "jti", "iat", "typ", "iss", "exp"}

@@ -2,10 +2,10 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError, HTTPException
 from fastapi.responses import JSONResponse
 
-from src.api.auth import router as auth_router
-from src.api.users import router as users_router
+from app.api.auth import router as auth_router
+from app.api.users import router as users_router
 
-from src.api.auth.utils import get_code_info
+from app.api.auth.utils import get_code_info
 
 app = FastAPI()
 app.include_router(auth_router, prefix="/api/auth")

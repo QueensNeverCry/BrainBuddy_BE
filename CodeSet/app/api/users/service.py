@@ -3,11 +3,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import time, datetime, timezone
 from typing import List
 
-from src.core.config import COMPONENT_CNT
-from src.models.score import TotalScore, UserDailyScore
+from app.core.config import COMPONENT_CNT
+from app.models.score import TotalScore, UserDailyScore
 
-from src.api.users.repository import Users, Scores 
-from src.api.users.schemas import UserRankingItem, UserHistoryItem
+from app.api.users.repository import Users, Scores, Daily
+from app.api.users.schemas import UserRankingItem, UserHistoryItem
 
 
 def parse_minutes(t: time) -> int:
@@ -49,7 +49,7 @@ class MainService:
 
     # 사용자에 대한 COMPONENT_CNT 개수의 과거 학습 분석 기록 리스트 반환
     async def get_history(db: AsyncSession, name: str) -> List[UserHistoryItem]:
-        records : List[UserDailyScore] = await Scores.get_recent_records(db, name, COMPONENT_CNT)
+        records : List[UserDailyScore] = await Daily.get_recent_records(db, name, COMPONENT_CNT)
         result = [UserHistoryItem(date=str(record.score_date) if record is not None else "",
                                   score=record.score if record is not None else 0,
                                   subject=record.subject if record is not None else "",
@@ -58,3 +58,7 @@ class MainService:
                                   place=record.location if record is not None else "") 
                                   for record in records]
         return result
+    
+    # UserDailyScore 에 현재 학습 record 생성 (시작)
+    async def create_plan(db:AsyncSession, name: str, when: datetime, where: str, what: str) -> None:
+        await Daily.create_daily_record(db, name, when, where, what)

@@ -3,7 +3,7 @@ from pydantic import Field, model_validator, field_validator
 from typing import Type, Dict, Any
 import re
 
-from src.api.auth.response_code import SignUpCode, LogInCode, WithdrawCode
+from app.api.auth.response_code import SignUpCode, LogInCode, WithdrawCode
 
 NamePattern = r'^[A-Za-z0-9가-힣_-]{2,16}$'
 
