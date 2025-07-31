@@ -1,6 +1,6 @@
 from sqlalchemy import Column, ForeignKey, UniqueConstraint, String, Integer, Double, Date, Time, func
 
-from src.models.db import Base
+from app.models.db import Base
 
 
 # 사용자의 학습 score 관리

@@ -6,9 +6,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime, timezone
 from typing import Union
 
-from src.models.security import RefreshToken
-from src.core.response_code import TokenAuth
-from src.core.config import LOCAL, REDIS_PORT, BLACK_LIST_ID, EXIST
+from app.models.security import RefreshToken
+from app.core.response_code import TokenAuth
+from app.core.config import LOCAL, REDIS_PORT, BLACK_LIST_ID, EXIST
 
 
 # BlackList = redis.Redis(host= LOCAL, port= REDIS_PORT, db= BLACK_LIST_ID)

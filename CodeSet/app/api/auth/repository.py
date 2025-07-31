@@ -5,11 +5,11 @@ from fastapi import HTTPException
 from datetime import datetime, timezone
 import logging
 
-from src.models.users import User
-from src.models.score import TotalScore
-from src.models.security import RefreshToken
+from app.models.users import User
+from app.models.score import TotalScore
+from app.models.security import RefreshToken
 
-from src.api.auth.response_code import TokenDB
+from app.api.auth.response_code import TokenDB
 
 class Users:
     @staticmethod

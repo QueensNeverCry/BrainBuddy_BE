@@ -4,11 +4,11 @@ import uvicorn
 # 07.31 기준 keyfile 경로는 테스트 용 keyfile
 
 def RunHTTP():
-    uvicorn.run("src.main:app", host="0.0.0.0", port=8000)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000)
 
 def RunHTTPS():
     uvicorn.run(
-        "src.main:app",
+        "app.main:app",
         host="0.0.0.0",
         port=8443,
         ssl_keyfile="../Test/SSL/key.pem",

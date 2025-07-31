@@ -1,4 +1,4 @@
-from src.api.auth.response_code import CodeInfo, SignUpCode
+from app.api.auth.response_code import CodeInfo, SignUpCode
 
 ALL_AUTH_CODES = [SignUpCode] # LogInCode, TokenCode 추가 필요
 

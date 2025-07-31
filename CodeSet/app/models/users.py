@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, Integer, DateTime, Boolean, func
 
-from src.models.db import Base
+from app.models.db import Base
 
 
 # MySQL DB 의 Users 테이블에 대한 ORM 객체

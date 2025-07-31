@@ -3,12 +3,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from jose import jwt, JWTError, ExpiredSignatureError
 from typing import AsyncGenerator
 
-from src.models.users import User
-from src.core.database import AsyncSessionLocal  # 공통 세션메이커(sessionmaker)
-# from src.core.database import UsersAsyncSession, RefreshTokensAsyncSession, ScoreTablesAsyncSession
-from src.core.security import Token
-from src.core.response_code import TokenAuth
-from src.core.config import ACCESS
+from app.models.users import User
+from app.core.database import AsyncSessionLocal  # 공통 세션메이커(sessionmaker)
+# from app.core.database import UsersAsyncSession, RefreshTokensAsyncSession, ScoreTablesAsyncSession
+from app.core.security import Token
+from app.core.response_code import TokenAuth
+from app.core.config import ACCESS
 
 def GetCurrentUser(request: Request) -> str:
     # ACCESS 토큰 추출

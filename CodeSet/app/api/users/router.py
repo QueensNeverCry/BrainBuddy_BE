@@ -3,10 +3,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.deps import AsyncDB, GetCurrentUser
+from app.core.deps import AsyncDB, GetCurrentUser
 
-from src.api.users.service import RankingService, MainService
-from src.api.users.schemas import RankingResponse, MainResponse
+from app.api.users.service import RankingService, MainService
+from app.api.users.schemas import RankingResponse, MainResponse, StudyPlanRequest, StudyPlanResponse
 
 router = APIRouter()
 
@@ -46,3 +46,21 @@ async def get_main_info(email: str = Depends(GetCurrentUser),
                         total_study_cnt=params["total_study_cnt"],
                         # COMPONENT_CNT 보다 적은 개수인 경우, None 을 대체한 경우에 대해 공유할 것 !!!
                         history=await MainService.get_history(db, email))
+
+
+
+# 학습을 시작한 사용자의 학습 메타 데이터 기록 API [HTTPS POST : https://{ServerDNS}/api/users/study-plan]
+@router.post(path="/study-plan",
+             summary="Create study plan",
+             description="Write current study's meta-data.")
+async def create_study_plan(payload: StudyPlanRequest,
+                            name: str = Depends(GetCurrentUser),
+                            db: AsyncSession = Depends(AsyncDB.get_db),) -> StudyPlanResponse:
+    try:
+        await db.begin()
+        await MainService.create_plan(db, name, payload.when, payload.where, payload.what)
+        return StudyPlanResponse(status="success")
+    except:
+        raise HTTPException(status_code=status.HTTP_418_IM_A_TEAPOT,
+                            detail={"code": "DEBUG",
+                                    "message": "Need to branch error handling : study-plan api."})
