@@ -8,11 +8,10 @@ from typing import List
 from app.models.users import User
 from app.models.score import TotalScore, UserDailyScore
 
-from app.api.users.response_code import ScoreDB
-from app.api.users.schemas import UserRankingItem, UserHistoryItem
+from app.api.dashboard.schemas import UserRankingItem, UserHistoryItem
 
 # Users 테이블
-class Users:
+class UsersDB:
     @staticmethod
     async def get_name(db: AsyncSession, email: str) -> str:
         query = select(User.user_name).where(User.email == email)
@@ -28,7 +27,7 @@ class Users:
         return result.scalar_one()
 
 
-class Scores:
+class ScoresDB:
     @staticmethod
     async def sort_total_score(db: AsyncSession) -> List[UserRankingItem]:
         query = (select(TotalScore.user_name,
@@ -64,7 +63,7 @@ class Scores:
         return higher_cnt + 1
 
 
-class Daily:    
+class DailyDB:    
     @staticmethod
     async def get_recent_records(db: AsyncSession, name: str, cnt: int) -> List[UserDailyScore | None]:
         query = (select(UserDailyScore).where(UserDailyScore.user_name == name)
@@ -90,7 +89,4 @@ class Daily:
             await db.flush()
             await db.refresh(record)
         except SQLAlchemyError:
-            await db.rollback()
-            raise HTTPException(status_code=ScoreDB.SERVER_ERROR.value.status,
-                                detail={"code": ScoreDB.SERVER_ERROR.value.code,
-                                        "message": ScoreDB.SERVER_ERROR.value.message})
+            raise

@@ -1,8 +1,10 @@
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 from pydantic import Field, model_validator, field_validator
 
 from typing import Type, Dict, List
 from datetime import datetime, timezone
+
+from app.api.dashboard.exceptions import Score, Daily
 
 # ranking 객체의 요소
 class UserRankingItem(BaseModel):
@@ -46,10 +48,13 @@ class StudyPlanRequest(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def forbid_and_inject_when(cls, values: dict) -> dict:
-        # 1) 클라이언트가 when 을 보내면 에러
-        if "when" in values: # Error 객체 커스텀 하면 바꿀것
-            raise ValueError("`when` 필드는 클라이언트에서 지정할 수 없습니다.")
+    def check_fields(cls, values: dict) -> dict:
+        required_fields = ["where", "what"]
+        missing = [f for f in required_fields if f not in values or values[f] in (None, '')]
+        if missing:
+            raise Daily.FORBIDDEN.exc()
+        if "when" in values:
+            raise Daily.INVALID_FORMAT.exc()
         # 2) 서버 현재 시간으로 주입
         values["when"] = datetime.now(timezone.utc)
         return values

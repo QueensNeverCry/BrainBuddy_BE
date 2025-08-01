@@ -1,7 +1,6 @@
 from sqlalchemy import select, update, delete, insert, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
-from fastapi import HTTPException
 from datetime import datetime, timezone
 import logging
 
@@ -9,7 +8,6 @@ from app.models.users import User
 from app.models.score import TotalScore
 from app.models.security import RefreshToken
 
-from app.api.auth.response_code import TokenDB
 
 class Users:
     @staticmethod
@@ -52,10 +50,7 @@ class Users:
             await db.execute(query)
             await db.flush()
         except SQLAlchemyError:
-            await db.rollback()
-            raise HTTPException(status_code=TokenDB.SERVER_ERROR.value.status,
-                                detail={"code": TokenDB.SERVER_ERROR.value.code,
-                                        "message": TokenDB.SERVER_ERROR.value.message})
+            raise
 
 class RefreshTokens:
     @staticmethod
@@ -67,12 +62,8 @@ class RefreshTokens:
                                            .execution_options(synchronize_session="fetch") )
         try:
             await db.execute(query)
-        except SQLAlchemyError as e:
-            logging.error("purge_user_tokens :: %r", e, exc_info=True)
-            await db.rollback()
-            raise HTTPException(status_code=TokenDB.SERVER_ERROR.value.status,
-                                detail={"code": TokenDB.SERVER_ERROR.value.code,
-                                        "message": TokenDB.SERVER_ERROR.value.message})
+        except SQLAlchemyError:
+            raise
     
     @staticmethod
     async def update_token(db: AsyncSession, payload: dict, email: str) -> bool:
@@ -97,10 +88,7 @@ class RefreshTokens:
             await db.flush()
             return bool(result.rowcount)
         except SQLAlchemyError:
-            await db.rollback()
-            raise HTTPException(status_code=TokenDB.SERVER_ERROR.value.status,
-                                detail={"code": TokenDB.SERVER_ERROR.value.code,
-                                        "message": TokenDB.SERVER_ERROR.value.message})
+            raise
         
     @staticmethod
     async def insert_token(db: AsyncSession, payload: dict, email: str) -> None:
@@ -123,10 +111,7 @@ class RefreshTokens:
             await db.execute(query)
             await db.flush()
         except SQLAlchemyError:
-            await db.rollback()
-            raise HTTPException(status_code=TokenDB.SERVER_ERROR.value.status,
-                                detail={"code": TokenDB.SERVER_ERROR.value.code,
-                                        "message": TokenDB.SERVER_ERROR.value.message})
+            raise
         
 
 class TotalScoreDB:
@@ -135,7 +120,6 @@ class TotalScoreDB:
         db.add(record)
         await db.flush()         # SQL 전송 + PK 할당
         await db.refresh(record)
-        # 예외처리 안씀 ? 예외처리 작성 완료시 해당 주석 삭제할 것
 
     @staticmethod
     async def delete_user(db: AsyncSession, name: str) -> None:
@@ -144,7 +128,4 @@ class TotalScoreDB:
             await db.execute(query)
             await db.flush()
         except SQLAlchemyError:
-            await db.rollback()
-            raise HTTPException(status_code=TokenDB.SERVER_ERROR.value.status,
-                                detail={"code": TokenDB.SERVER_ERROR.value.code,
-                                        "message": TokenDB.SERVER_ERROR.value.message})
+            raise
