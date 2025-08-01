@@ -2,11 +2,16 @@ from fastapi import APIRouter, Request, Response, HTTPException, Depends, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 
 from app.core.deps import AsyncDB, GetCurrentUser
 
-from app.api.users.service import RankingService, MainService
+from app.api.users.service import UserService, RankingService, MainService
 from app.api.users.schemas import RankingResponse, MainResponse, StudyPlanRequest, StudyPlanResponse
+from app.api.users.response_code import ScoreDB
+
+import traceback
+import logging
 
 router = APIRouter()
 
@@ -54,13 +59,23 @@ async def get_main_info(email: str = Depends(GetCurrentUser),
              summary="Create study plan",
              description="Write current study's meta-data.")
 async def create_study_plan(payload: StudyPlanRequest,
-                            name: str = Depends(GetCurrentUser),
+                            email: str = Depends(GetCurrentUser),
                             db: AsyncSession = Depends(AsyncDB.get_db),) -> StudyPlanResponse:
     try:
         await db.begin()
+        name = await UserService.parse_name(db, email)
         await MainService.create_plan(db, name, payload.when, payload.where, payload.what)
-        return StudyPlanResponse(status="success")
-    except:
-        raise HTTPException(status_code=status.HTTP_418_IM_A_TEAPOT,
-                            detail={"code": "DEBUG",
-                                    "message": "Need to branch error handling : study-plan api."})
+        await db.commit()
+        return StudyPlanResponse(status="success", start_time=payload.when)
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=ScoreDB.INVALID_FORMAT.value.status,
+                            detail={"code": ScoreDB.INVALID_FORMAT.value.code,
+                                    "message": ScoreDB.INVALID_FORMAT.value.message})
+    # except Exception as e:
+    #     await db.rollback()
+    #     logging.error(f"Error in create_study_plan: {str(e)}")
+    #     traceback.print_exc()
+    #     raise HTTPException(status_code=status.HTTP_418_IM_A_TEAPOT,
+    #                         detail={"code": "DEBUG",
+    #                                 "message": "Need to branch error handling : study-plan api."})

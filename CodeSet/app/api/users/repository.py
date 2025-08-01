@@ -78,6 +78,7 @@ class Daily:
     
     @staticmethod
     async def create_daily_record(db:AsyncSession, name: str, when: datetime, where: str, what: str) -> None:
+        print(f"[DEBUG] :: (user name = {name})  (when = {when})  (where = {where})  (what = {what})")
         record = UserDailyScore(user_name=name,
                                 score_date=when.date(),
                                 start_time=when.time(),

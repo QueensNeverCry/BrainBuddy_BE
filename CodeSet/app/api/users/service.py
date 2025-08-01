@@ -21,6 +21,11 @@ def parse_time(t: time) -> str:
     minute = f"{t.minute:02d}"
     return f"{period} {hour}:{minute}"
 
+class UserService:
+    @staticmethod
+    async def parse_name(db: AsyncSession, email: str) -> str:
+        return await Users.get_name(db, email)
+    
 class RankingService:
     # 전체 active 사용자 수 반환
     @staticmethod

@@ -26,7 +26,7 @@ class UserDailyScore(Base):
     location = Column(String(32), nullable=False)  # 학습 장소(Location)
     score = Column(Double, nullable=False, default=0.0) # 학습 점수
 
-    # 한 유저가 같은 일, 시간, 과목, 장소에 여러 점수를 기록하지 않도록 Unique 제약, score_time == null 이면 중복 허용
+    # 한 유저가 같은 일, 동일 시간, 과목, 장소에 여러 점수를 기록하지 않도록 Unique 제약
     __table_args__ = (
         UniqueConstraint('user_name', 'score_date', 'start_time', 'subject', 'location', name='uix_user_score_detail'),
     )

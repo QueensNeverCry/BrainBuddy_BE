@@ -10,7 +10,7 @@ Connect = pymysql.connect(
 )
 Session = Connect.cursor()
 
-Directory = "/Users/v/SUN_RAT/I_AM_SEXY_QUEEN/BrainBuddy_BE/Test"
+Directory = "/Users/v/SUN_RAT/I_AM_SEXY_QUEEN/BrainBuddy_BE/Test/data"
 
 UserPW = "THIS_USER_IS_DUMMY_USER"
 
@@ -23,22 +23,20 @@ if __name__ == "__main__":
     with open(filepath, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
+            email = row["email"]
             user_name = row["user_name"]
-            total_score = float(row["total_score"])
-            avg_score = float(row["avg_score"])
-            total_cnt = int(row["total_cnt"])
             # created_at은 MySQL의 NOW() 함수 사용
             sql = """
-                INSERT INTO TotalScore (user_name, total_score, avg_score, total_cnt)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO Users (email, user_name, user_pw)
+                VALUES (%s, %s, %s)
             """
             try:
-                Session.execute(sql, (user_name, total_score, avg_score, total_cnt))
+                Session.execute(sql, (email, user_name, UserPW))
             except Exception as e:
-                print(f"[ERROR] : Insert error for {user_name}: {e}")
+                print(f"[ERROR] : Insert error for {email}, {user_name}: {e}")
 
     Connect.commit()
     Session.close()
     Connect.close()
 
-    print("CSV 데이터가 MySQL에 성공적으로 입력되었습니다.")
+print("CSV 데이터가 MySQL에 성공적으로 입력되었습니다.")

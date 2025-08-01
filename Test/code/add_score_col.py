@@ -1,7 +1,7 @@
 import os, csv
 import random
 
-Directory = "/Users/v/SUN_RAT/I_AM_SEXY_QUEEN/BrainBuddy_BE/Test"
+Directory = "/Users/v/SUN_RAT/I_AM_SEXY_QUEEN/BrainBuddy_BE/Test/data"
 
 if __name__ == "__main__":
     filename = input("Enter FileName : ")
