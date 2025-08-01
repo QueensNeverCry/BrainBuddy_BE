@@ -55,7 +55,7 @@ class Scores:
         score_query = select(TotalScore.total_score).where(TotalScore.user_name == name)
         user_score_result = await db.execute(score_query)
         user_score = user_score_result.scalar_one_or_none()
-        if user_score is None or user_score is 0.0:
+        if user_score is None or user_score == 0.0:
             return None
         # user_score보다 큰 점수 가진 사람의 수 + 1 = 랭킹
         rank_query = select(func.count()).where(TotalScore.total_score > user_score)

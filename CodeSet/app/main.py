@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
 from app.api.users import router as users_router
@@ -8,6 +9,13 @@ from app.api.users import router as users_router
 from app.api.auth.utils import get_code_info
 
 app = FastAPI()
+
+app.add_middleware(CORSMiddleware,
+                   allow_origins=["http://localhost:5173"],
+                   allow_credentials=True,
+                   allow_methods=["*"],
+                   allow_headers=["*"])
+
 app.include_router(auth_router, prefix="/api/auth")
 app.include_router(users_router, prefix="/api/users")
 
@@ -18,12 +26,10 @@ async def auth_validation_handler(request: Request,
     # 에러 code에 따라 SignUpCode Enum에서 정보를 추출
     print(exc.errors()) 
     for error in exc.errors():
-        # 1) Pydantic이 보관한 원래 예외(ValueError) 꺼내기
         ctx_error = error.get("ctx", {}).get("error")
         if isinstance(ctx_error, ValueError):
             code_str = str(ctx_error)      
         else:
-            # 2) fallback: msg 에서 콤마 다음 부분만 추출
             raw = error.get("msg", "")
             code_str = raw.split(",", 1)[-1].strip()
         code_info = get_code_info(code_str)
