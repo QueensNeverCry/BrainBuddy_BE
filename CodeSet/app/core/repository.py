@@ -1,15 +1,13 @@
-from fastapi import HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-import redis.asyncio as aioredis
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime, timezone
 from typing import Union
 
 from app.models.security import RefreshToken
-from app.core.response_code import TokenAuth
 from app.core.config import LOCAL, REDIS_PORT, BLACK_LIST_ID, EXIST
 
+import redis.asyncio as aioredis
 
 # BlackList = redis.Redis(host= LOCAL, port= REDIS_PORT, db= BLACK_LIST_ID)
 BlackList = aioredis.Redis(host=LOCAL, port=REDIS_PORT, db=BLACK_LIST_ID)
@@ -42,9 +40,7 @@ class RefreshTokensTable:
             await db.flush()
         except SQLAlchemyError:
             await db.rollback()
-            raise HTTPException(status_code=TokenAuth.SERVER_ERROR.value.status,
-                                detail={"code": TokenAuth.SERVER_ERROR.value.code,
-                                        "message": TokenAuth.SERVER_ERROR.value.message})
+            raise
         
     @staticmethod
     async def is_revoked(db : AsyncSession, jti: str) -> bool | None:
@@ -53,6 +49,4 @@ class RefreshTokensTable:
             result = await db.execute(query)
             return result.scalar_one_or_none()
         except SQLAlchemyError:
-            raise HTTPException(status_code=TokenAuth.SERVER_ERROR.value.status,
-                                detail={"code": TokenAuth.SERVER_ERROR.value.code,
-                                        "message": TokenAuth.SERVER_ERROR.value.message})
+            raise

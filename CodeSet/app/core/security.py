@@ -1,12 +1,13 @@
-from fastapi import HTTPException, status
 from jose import jwt, JWTError, ExpiredSignatureError
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone, timedelta
 import uuid
+import logging
 
 from app.core.config import JWT_SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_SEC, REFRESH_TOKEN_EXPIRE_SEC, ACCESS_TYPE, REFRESH_TYPE, ISSUER
-from app.core.response_code import TokenAuth
+
 from app.core.repository import AccessBlackList, RefreshTokensTable
+from app.core.exceptions import TokenAuth, Server
 
 
 RequiredClaims = {"sub", "jti", "iat", "typ", "iss", "exp"}
@@ -40,10 +41,12 @@ class Token:
         try:
             access_token = jwt.encode(claims= payload, key= JWT_SECRET_KEY, algorithm= JWT_ALGORITHM)
             return access_token
-        except JWTError as e:
-            raise HTTPException(status_code= TokenAuth.SERVER_ERROR.value.status,
-                                detail={"code" : TokenAuth.SERVER_ERROR.value.code,
-                                        "message" : TokenAuth.SERVER_ERROR.value.message})
+        except JWTError:
+            raise Server.SERVER_ERROR.exc()
+        # 예상하지 못한 내부 에러
+        except Exception as e:
+            logging.error("create_access_token error: %s", e, exc_info=True)
+            raise Server.SERVER_ERROR.exc()
 
     # JWT REFRESH 토큰 생성
     @staticmethod
@@ -59,10 +62,12 @@ class Token:
         try:
             refresh_token = jwt.encode(payload, key= JWT_SECRET_KEY, algorithm= JWT_ALGORITHM)
             return refresh_token
-        except JWTError as e:
-            raise HTTPException(status_code= TokenAuth.SERVER_ERROR.value.status,
-                                detail={"code" : TokenAuth.SERVER_ERROR.value.code,
-                                        "message" : TokenAuth.SERVER_ERROR.value.message})
+        except JWTError:
+            raise TokenAuth.TOKEN_INVALID.exc()
+        # 예상하지 못한 내부 에러
+        except Exception as e:
+            logging.error("create_refresh_token error: %s", e, exc_info=True)
+            raise Server.SERVER_ERROR.exc()
 
     # 두 token 모든 claim 검증, user_id 일치 확인
     @staticmethod
@@ -102,7 +107,10 @@ class Token:
         try:
             refresh_payload = jwt.decode(old_refresh_token,JWT_SECRET_KEY,algorithms=[JWT_ALGORITHM])
         except JWTError:
-            return True    
+            return True
+        except Exception as e:
+            logging.error("is_refresh_revoked error: %s", e, exc_info=True)
+            raise Server.SERVER_ERROR.exc()
         jti = refresh_payload.get("jti")
         # DB 조회: 해당 JTI의 revoked 플래그 검사
         result = await RefreshTokensTable.is_revoked(db, jti)
@@ -122,18 +130,15 @@ class Token:
             payload = jwt.decode(token, JWT_SECRET_KEY, [JWT_ALGORITHM])
             invalid_claims = get_invalid_claims(payload=payload)
             if invalid_claims:
-                raise HTTPException(status_code=TokenAuth.TOKEN_INVALID.value.status,
-                                    detail={"code" : TokenAuth.TOKEN_INVALID.value.code,
-                                            "message" : TokenAuth.TOKEN_INVALID.value.message})
+                raise TokenAuth.TOKEN_INVALID.exc()
             return payload
         except ExpiredSignatureError:
-            raise HTTPException(status_code= TokenAuth.TOKEN_EXPIRED.value.status,
-                                detail={"code" : TokenAuth.TOKEN_EXPIRED.value.code,
-                                        "message" : TokenAuth.TOKEN_EXPIRED.value.message})
+            raise TokenAuth.TOKEN_EXPIRED.exc()
         except JWTError:
-            raise HTTPException(status_code= TokenAuth.TOKEN_INVALID.value.status,
-                                detail={"code" : TokenAuth.TOKEN_INVALID.value.code,
-                                        "message" : TokenAuth.TOKEN_INVALID.value.message})
+            raise TokenAuth.TOKEN_INVALID.exc()
+        except Exception as e:
+            logging.error("get_payload error: %s", e, exc_info=True)
+            raise Server.SERVER_ERROR.exc()
 
     # JWT 토큰에서 email 추출 (만료시각 검증 X)
     @staticmethod
@@ -141,10 +146,11 @@ class Token:
         try:
             payload = jwt.decode(token, JWT_SECRET_KEY, [JWT_ALGORITHM], options={"verify_exp": False})
             return payload.get("sub")
-        except:
-            raise HTTPException(status_code= TokenAuth.TOKEN_INVALID.value.status,
-                                detail={"code" : TokenAuth.TOKEN_INVALID.value.code,
-                                        "message" : TokenAuth.TOKEN_INVALID.value.message})
+        except JWTError:
+            raise TokenAuth.TOKEN_INVALID.exc()
+        except Exception as e:
+            logging.error("parse_email error: %s", e, exc_info=True)
+            raise Server.SERVER_ERROR.exc()
         
     # JWT 토큰에서 jti 추출 (만료시각 검증 X)
     @staticmethod
@@ -152,10 +158,11 @@ class Token:
         try:
             payload = jwt.decode(token, JWT_SECRET_KEY, [JWT_ALGORITHM], options={"verify_exp": False})
             return payload.get("jti")
-        except:
-            raise HTTPException(status_code= TokenAuth.TOKEN_INVALID.value.status,
-                                detail={"code" : TokenAuth.TOKEN_INVALID.value.code,
-                                        "message" : TokenAuth.TOKEN_INVALID.value.message})
+        except JWTError:
+            raise TokenAuth.TOKEN_INVALID.exc()
+        except Exception as e:
+            logging.error("parse_email error: %s", e, exc_info=True)
+            raise Server.SERVER_ERROR.exc()
         
     # JWT 토큰에서 exp 추출 (만료시각 검증 X)
     @staticmethod
@@ -163,7 +170,8 @@ class Token:
         try:
             payload = jwt.decode(token, JWT_SECRET_KEY, [JWT_ALGORITHM], options={"verify_exp": False})
             return payload.get("exp")
-        except:
-            raise HTTPException(status_code= TokenAuth.TOKEN_INVALID.value.status,
-                                detail={"code" : TokenAuth.TOKEN_INVALID.value.code,
-                                        "message" : TokenAuth.TOKEN_INVALID.value.message})
+        except JWTError:
+            raise TokenAuth.TOKEN_INVALID.exc()
+        except Exception as e:
+            logging.error("parse_email error: %s", e, exc_info=True)
+            raise Server.SERVER_ERROR.exc()
