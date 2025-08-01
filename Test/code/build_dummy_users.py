@@ -1,7 +1,7 @@
 import random, string, re
 import os, csv
 
-Directory = "/Users/v/SUN_RAT/I_AM_SEXY_QUEEN/BrainBuddy_BE/Test"
+Directory = "/Users/v/SUN_RAT/I_AM_SEXY_QUEEN/BrainBuddy_BE/Test/data"
 
 NamePattern = r'^[A-Za-z0-9가-힣_-]{2,16}$'
 # 모든 한글 유니코드 범위를 포함

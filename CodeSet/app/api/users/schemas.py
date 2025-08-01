@@ -2,7 +2,7 @@ from pydantic import BaseModel, ValidationError
 from pydantic import Field, model_validator, field_validator
 
 from typing import Type, Dict, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 # ranking 객체의 요소
 class UserRankingItem(BaseModel):
@@ -37,10 +37,24 @@ class MainResponse(BaseModel):
     total_study_cnt: int
     history: List[UserHistoryItem]
 
+
+# 학습 시작시, 사용자의 현재학습 메타데이터 기록 요청 body
 class StudyPlanRequest(BaseModel):
-    when: datetime = Field(...)
+    when: datetime
     where: str     = Field(...)
     what:  str     = Field(...)
 
+    @model_validator(mode="before")
+    @classmethod
+    def forbid_and_inject_when(cls, values: dict) -> dict:
+        # 1) 클라이언트가 when 을 보내면 에러
+        if "when" in values: # Error 객체 커스텀 하면 바꿀것
+            raise ValueError("`when` 필드는 클라이언트에서 지정할 수 없습니다.")
+        # 2) 서버 현재 시간으로 주입
+        values["when"] = datetime.now(timezone.utc)
+        return values
+
+# 학습 시작시, 사용자의 현재학습 메타데이터 기록 응답 body
 class StudyPlanResponse(BaseModel):
     status: str
+    start_time: datetime
