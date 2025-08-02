@@ -3,7 +3,7 @@
 ```plaintext
 BackEnd/
 │
-├── app/
+├── Application/
 │   ├── main.py # Web Application entry point
 │   │
 │   ├── api/  # Endpoints
