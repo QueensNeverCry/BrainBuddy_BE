@@ -4,7 +4,7 @@ import uvicorn
 # 07.31 기준 keyfile 경로는 테스트 용 keyfile
 
 def RunHTTP():
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000)
+    uvicorn.run("Application.main:app", host="0.0.0.0", port=8000)
 
 def RunHTTPS():
     uvicorn.run(
