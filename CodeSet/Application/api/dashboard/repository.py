@@ -75,6 +75,8 @@ class DailyDB:
             records += [None] * (cnt - len(records))
         return records
     
+    # 아래의 함수는 WS 으로... websocket query string 의 끝에 parameter 로 받아서 하는게 더 나을거 같기도...
+
     @staticmethod
     async def create_daily_record(db:AsyncSession, name: str, when: datetime, where: str, what: str) -> None:
         print(f"[DEBUG] :: (user name = {name})  (when = {when})  (where = {where})  (what = {what})")
