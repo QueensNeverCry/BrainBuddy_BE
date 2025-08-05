@@ -71,7 +71,6 @@ class RefreshTokens:
                                            .execution_options(synchronize_session="fetch") )
         try:
             await db.execute(query)
-            print(f"[DEBUG] : purge ok")
         except SQLAlchemyError:
             raise
     
@@ -96,7 +95,6 @@ class RefreshTokens:
         try:
             result = await db.execute(query)
             await db.flush()
-            print(f"[DEBUG] : update ok {result}")
             return bool(result.rowcount)
         except SQLAlchemyError:
             raise
@@ -121,7 +119,6 @@ class RefreshTokens:
         try:
             await db.execute(query)
             await db.flush()
-            print(f"[DEBUG] : insert OK")
         except SQLAlchemyError:
             raise
         

@@ -51,10 +51,6 @@ class AuthService:
     async def add_refresh_token(db: AsyncSession, refresh_token: str, name: str) -> None:
         # 새 토큰 정보 추출
         payload = Token.get_payload(refresh_token)
-
-        # lock_stmt = (select(RefreshTokens).where(RefreshTokens.user_name == name).with_for_update())
-        # await db.execute(lock_stmt)
-
         # 해당 사용자의 만료(expired) 또는 폐기(revoked) 토큰 먼저 삭제
         await RefreshTokens.purge_user_tokens(db, name)
         # 동일 jti 토큰이 있으면 update, 없다면 insert (신규 추가)
