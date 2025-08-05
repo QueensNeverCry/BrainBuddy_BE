@@ -34,10 +34,9 @@ async def get_weekly_ranking(db: AsyncSession = Depends(AsyncDB.get_db)) -> Rank
 @router.get(path="/main-info",
             summary="Get Main Page User Info",
             description="Provides the key data for configuring the user's main page.")
-async def get_main_info(email: str = Depends(GetCurrentUser),
+async def get_main_info(user_name: str = Depends(GetCurrentUser),
                         db: AsyncSession = Depends(AsyncDB.get_db)) -> MainResponse:
     await db.begin()
-    user_name = await MainService.fetch_name(db, email)
     params = await MainService.get_main_params(db, user_name)
     return MainResponse(status="success",
                         user_name=user_name,
@@ -46,7 +45,7 @@ async def get_main_info(email: str = Depends(GetCurrentUser),
                         current_rank=params["rank"],
                         total_study_cnt=params["total_study_cnt"],
                         # COMPONENT_CNT 보다 적은 개수인 경우, None 을 대체한 경우에 대해 공유할 것 !!!
-                        history=await MainService.get_history(db, email))
+                        history=await MainService.get_history(db, user_name))
 
 
 

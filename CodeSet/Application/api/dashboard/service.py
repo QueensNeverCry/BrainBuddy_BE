@@ -46,9 +46,9 @@ class MainService:
         record = await ScoresDB.get_TotalScore_record(db, name)
         rank = await ScoresDB.get_user_rank(db, name)
         result["total_users"] = await UsersDB.get_active_cnt(db)
-        result["avg_focus"] = record.avg_score
-        result["total_study_cnt"] = record.total_cnt
-        result["rank"] = "-" if not rank else str(rank)
+        result["avg_focus"] = record.avg_score if record else 0
+        result["total_study_cnt"] = record.total_cnt if record else 0
+        result["rank"] = str(rank) if rank else "-"
         return result
 
     # 사용자에 대한 COMPONENT_CNT 개수의 과거 학습 분석 기록 리스트 반환
