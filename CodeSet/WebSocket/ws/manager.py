@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict
 from fastapi import WebSocket
 
 
@@ -18,11 +18,12 @@ class ConnectionManager:
     def get_connection(self, user_name: str) -> WebSocket | None:
         return self.connections.get(user_name)
 
-    async def send_personal_message(self, user_name: str, message: Any) -> None:
+    async def send_personal_message(self, user_name: str, message: str) -> None:
         websocket = self.get_connection(user_name)
         if websocket:
             await websocket.send_json(message)
 
-    async def broadcast(self, message: Any) -> None:
+    async def broadcast(self, message: str) -> None:
         for websocket in self.active_connections.values():
             await websocket.send_json(message)
+

@@ -1,1 +1,2 @@
-from .repository import AccessBlackList, RefreshTokensTable
+from .authenticate import AccessBlackList, RefreshTokensTable
+from .aggregate import TotalScoreTable, UserDailyTable, DailyRecord

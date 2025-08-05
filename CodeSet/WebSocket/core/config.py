@@ -24,3 +24,4 @@ LOCAL_DB_URL = os.getenv("LOCAL_DB_URL")
 TIME_OUT = 30
 N_FRAMES = 30
 FRAME_DIR = ""
+MODEL_PATH = ""
