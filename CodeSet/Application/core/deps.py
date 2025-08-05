@@ -9,16 +9,15 @@ from Application.core.exceptions import TokenAuth, Server
 from Application.core.config import ACCESS
 
 def GetCurrentUser(request: Request) -> str:
-    # ACCESS 토큰 추출
     token = request.cookies.get(ACCESS)
     if not token:
         raise TokenAuth.TOKEN_INVALID.exc()
     try:
         payload = Token.get_payload(token)
-        email = payload.get("sub")
-        if email is None:
+        user_name = payload.get("sub")
+        if user_name is None:
             raise TokenAuth.TOKEN_INVALID.exc()
-        return email
+        return user_name
     except Exception:
         raise Server.SERVER_ERROR.exc()
 

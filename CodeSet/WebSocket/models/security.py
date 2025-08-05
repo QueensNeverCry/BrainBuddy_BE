@@ -1,4 +1,3 @@
-# src/models/security.py
 from sqlalchemy import Column, String, Integer, DateTime, Boolean, func
 
 from Application.models.db import Base
