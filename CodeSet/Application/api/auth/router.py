@@ -56,9 +56,10 @@ async def login(request: LogInRequest,
         user = await AuthService.find_user(db, request=request)
         if not user:
             raise Login.USER_NOT_FOUND.exc()
-        access_token = Token.create_access_token(user.email)
-        refresh_token = Token.create_refresh_token(user.email)
-        await AuthService.add_refresh_token(db, refresh_token, user.email)
+        access_token = Token.create_access_token(user.user_name)
+        refresh_token = Token.create_refresh_token(user.user_name)
+        # print(f"{user.user_name}")
+        await AuthService.add_refresh_token(db, refresh_token, user.user_name)
         # response - cookie에 JWT ACCESS TOKEN 설정
         AuthService.set_cookies(response, access_token, refresh_token)
         await db.commit()
@@ -69,7 +70,7 @@ async def login(request: LogInRequest,
 
 
 
-# JWT Token 재발급 요청 API [HTTP POST : https://{ServerDNS}/api/auth/refresh]
+# --- Token 재발급 요청 API [HTTP POST : https://{ServerDNS}/api/auth/refresh] ---
 @router.post("/refresh", 
              status_code= status.HTTP_200_OK,
              summary= "Refresh Tokens", 
@@ -77,27 +78,31 @@ async def login(request: LogInRequest,
 async def renew_tokens(request: Request,
                        response: Response, 
                        db: AsyncSession = Depends(AsyncDB.get_db),
-                       email: str = Depends(GetCurrentUser)) -> RenewResponse:
+                       name: str = Depends(GetCurrentUser)) -> RenewResponse:
     old_access = request.cookies.get(ACCESS)
     old_refresh = request.cookies.get(REFRESH)
     try:
         await db.begin()
         # 두 token 모두 존재, 모든 claim 검증, user_email 일치 확인
-        if not await Token.is_normal_tokens(db, old_access, old_refresh, email=email):
+        if not await Token.is_normal_tokens(db, old_access, old_refresh, name):
+            AuthService.clear_cookies(response)
             raise TokenAuth.TOKEN_INVALID.exc()
         # Refresh 토큰의 revoked 여부 확인
         if await Token.is_refresh_revoked(db, old_access, old_refresh):
+            AuthService.clear_cookies(response)
             raise TokenAuth.TOKEN_INVALID.exc()
         # Refresh 토큰의 만료 여부 확인
         if Token.is_refresh_expired(old_refresh):
+            AuthService.clear_cookies(response)
             raise TokenAuth.LOGIN_AGAIN.exc()
         # 사용자 검증
-        if not await AuthService.check_user(db, email):
+        if not await AuthService.check_user(db, name):
+            AuthService.clear_cookies(response)
             raise TokenAuth.USER_NOT_FOUND.exc()
         
-        access_token = Token.create_access_token(email)
-        refresh_token = Token.create_refresh_token(email)
-        await AuthService.add_refresh_token(db, refresh_token, email)
+        access_token = Token.create_access_token(name)
+        refresh_token = Token.create_refresh_token(name)
+        await AuthService.add_refresh_token(db, refresh_token, name)
         await db.commit()
         AuthService.set_cookies(response, access_token, refresh_token)
         return RenewResponse()
@@ -107,21 +112,21 @@ async def renew_tokens(request: Request,
 
 
 
-# LogOut API [HTTP POST : https://{ServerDNS}/api/auth/log-out]
+# --- LogOut API [HTTP POST : https://{ServerDNS}/api/auth/log-out] ---
 @router.post("/log-out",
              status_code=status.HTTP_200_OK,
              summary="Log-Out",
              description="사용자의 로그아웃")
 async def logout(request: Request, 
                  response: Response, 
+                 name: str = Depends(GetCurrentUser),
                  db: AsyncSession = Depends(AsyncDB.get_db)) -> LogOutResponse:
     access_token = request.cookies.get(ACCESS)
     refresh_token = request.cookies.get(REFRESH)
-    email = Token.parse_email(access_token)
     try:
         await db.begin()
         # 검증
-        if not await Token.is_normal_tokens(db, access_token, refresh_token, email):
+        if not await Token.is_normal_tokens(db, access_token, refresh_token, name):
             raise TokenAuth.TOKEN_INVALID.exc()
         await AuthService.handle_logout_tokens(db, access_token, refresh_token)
         AuthService.clear_cookies(response)
@@ -133,17 +138,18 @@ async def logout(request: Request,
 
 
 
-# 회원탈퇴 API [HTTP DELETE : https://{ServerDNS}/api/auth/withdraw]
+# --- 회원탈퇴 API [HTTP DELETE : https://{ServerDNS}/api/auth/withdraw] ---
 @router.delete(path="/withdraw",
                status_code=status.HTTP_200_OK,
                summary="Account Withdrawal",
                description="Front 단에서 추가 확인(id 와 pw)을 거쳐 로그인한 사용자의 계정을 영구적으로 삭제")
 async def withdraw_user(request: Request, body: WithdrawRequest, response: Response, 
-                        email:str = Depends(GetCurrentUser), 
+                        name:str = Depends(GetCurrentUser), 
                         db: AsyncSession = Depends(AsyncDB.get_db)) -> WithdrawResponse:
     try:
         await db.begin()
-        if not await AuthService.withdraw_check_user(db, email, body.email, body.user_pw):
+        email = await AuthService.parse_name(db, name)
+        if email is None or not await AuthService.withdraw_check_user(db, email, body.email, body.user_pw):
             raise Withdraw.INVALID_FORMAT.exc()
         AuthService.clear_cookies(response)
         await db.commit()

@@ -1,4 +1,5 @@
 from fastapi import Request, Response
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import bcrypt
 
@@ -35,22 +36,30 @@ class AuthService:
             return user
         else:
             return None
+        
+    @staticmethod
+    async def parse_name(db: AsyncSession, name: str) -> str | None:
+        return await Users.get_email_by_name(db, name)
     
     @staticmethod
-    async def check_user(db: AsyncSession, email: str) -> bool:
-        res1 = await Users.exists_user_email(db, email)
-        res2 = await Users.is_active_user(db, email)
+    async def check_user(db: AsyncSession, name: str) -> bool:
+        res1 = await Users.exists_user_name(db, name)
+        res2 = await Users.is_active_user(db, name)
         return res1 and res2
 
     @staticmethod
-    async def add_refresh_token(db: AsyncSession, refresh_token: str, email: str) -> None:
+    async def add_refresh_token(db: AsyncSession, refresh_token: str, name: str) -> None:
         # 새 토큰 정보 추출
         payload = Token.get_payload(refresh_token)
+
+        # lock_stmt = (select(RefreshTokens).where(RefreshTokens.user_name == name).with_for_update())
+        # await db.execute(lock_stmt)
+
         # 해당 사용자의 만료(expired) 또는 폐기(revoked) 토큰 먼저 삭제
-        await RefreshTokens.purge_user_tokens(db, email)
+        await RefreshTokens.purge_user_tokens(db, name)
         # 동일 jti 토큰이 있으면 update, 없다면 insert (신규 추가)
-        if not await RefreshTokens.update_token(db, payload, email):
-            await RefreshTokens.insert_token(db, payload, email)
+        if not await RefreshTokens.update_token(db, payload, name):
+            await RefreshTokens.insert_token(db, payload, name)
     
     @staticmethod
     def set_cookies(response: Response, access_token: str, refresh_token: str) -> None:
@@ -71,8 +80,8 @@ class AuthService:
         
     @staticmethod
     async def handle_logout_tokens(db: AsyncSession, access: str, refresh: str) -> None:
-        RefreshTokensTable.update_to_revoked(db, Token.parse_jti(refresh))
-        AccessBlackList.add_blacklist_token(Token.parse_jti(access), Token.parse_exp(access))
+        await RefreshTokensTable.update_to_revoked(db, Token.parse_jti(refresh))
+        await AccessBlackList.add_blacklist_token(Token.parse_jti(access), Token.parse_exp(access))
 
     @staticmethod
     async def withdraw_check_user(db: AsyncSession, email: str, __email: str, pw: str) -> bool:

@@ -14,7 +14,7 @@ class Server(Enum):
                                     "Internal server error. Please try again later.",
                                     status.HTTP_500_INTERNAL_SERVER_ERROR)
     DB_ERROR        = ErrorMetadata("DB_ERROR",
-                                    "Maybe IntegrityError occured.",
+                                    "IntegrityError occured.",
                                     status.HTTP_500_INTERNAL_SERVER_ERROR)
     BAD_GATEWAY     = ErrorMetadata("BAD_GATEWAY",
                                     "A server gateway error occurred. Please try again later.",
@@ -28,6 +28,9 @@ class Server(Enum):
 
 # --- 토큰 인증 ---
 class TokenAuth(Enum):
+    REFRESHED       = ErrorMetadata("REFRESHED",
+                                    "Token refreshed successfully.",
+                                    status.HTTP_200_OK)
     TOKEN_EXPIRED   = ErrorMetadata("TOKEN_EXPIRED",
                                     "Authentication token has expired.",
                                     status.HTTP_401_UNAUTHORIZED)

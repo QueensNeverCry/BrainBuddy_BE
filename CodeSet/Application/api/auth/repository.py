@@ -32,14 +32,23 @@ class Users:
         return user
     
     @staticmethod
+    async def get_email_by_name(db: AsyncSession, name: str) -> str | None:
+        query = select(User.email).where(User.user_name == name)
+        result = await db.execute(query)
+        email = result.scalar_one_or_none()
+        if email is None:
+            return None
+        return email
+
+    @staticmethod
     async def register_user(db: AsyncSession, user: User) -> None:
         db.add(user)
         await db.flush()
         await db.refresh(user)
     
     @staticmethod
-    async def is_active_user(db: AsyncSession, email: str) -> bool:
-        query = select(User.status).where(User.email == email)
+    async def is_active_user(db: AsyncSession, name: str) -> bool:
+        query = select(User.status).where(User.user_name == name)
         status = await db.scalar(query)  # 없으면 None 반환
         return status == "active"
     
@@ -54,19 +63,20 @@ class Users:
 
 class RefreshTokens:
     @staticmethod
-    async def purge_user_tokens(db: AsyncSession, email: str) -> None:
+    async def purge_user_tokens(db: AsyncSession, name: str) -> None:
         now = datetime.now(timezone.utc)
         # DELETE 쿼리: user_id 일치 + (expires_at <= now OR revoked = True)
-        query = (delete(RefreshToken).where(RefreshToken.email == email,  
+        query = (delete(RefreshToken).where(RefreshToken.user_name == name,  
                                                 (RefreshToken.expires_at <= now) | (RefreshToken.revoked == True))
                                            .execution_options(synchronize_session="fetch") )
         try:
             await db.execute(query)
+            print(f"[DEBUG] : purge ok")
         except SQLAlchemyError:
             raise
     
     @staticmethod
-    async def update_token(db: AsyncSession, payload: dict, email: str) -> bool:
+    async def update_token(db: AsyncSession, payload: dict, name: str) -> bool:
         issued_at_value = payload["iat"]
         if isinstance(issued_at_value, (int, float)):
             issued_at = datetime.fromtimestamp(issued_at_value, timezone.utc)
@@ -78,7 +88,7 @@ class RefreshTokens:
         else:
             expires_at = expires_at_value
         query = (update(RefreshToken).where(RefreshToken.jti == payload["jti"])
-                                            .values(email=email,
+                                            .values(user_name=name,
                                                     issued_at=issued_at,
                                                     expires_at=expires_at,
                                                     revoked=False)
@@ -86,12 +96,13 @@ class RefreshTokens:
         try:
             result = await db.execute(query)
             await db.flush()
+            print(f"[DEBUG] : update ok {result}")
             return bool(result.rowcount)
         except SQLAlchemyError:
             raise
         
     @staticmethod
-    async def insert_token(db: AsyncSession, payload: dict, email: str) -> None:
+    async def insert_token(db: AsyncSession, payload: dict, name: str) -> None:
         issued_at_value = payload["iat"]
         if isinstance(issued_at_value, (int, float)):
             issued_at = datetime.fromtimestamp(issued_at_value, timezone.utc)
@@ -102,7 +113,7 @@ class RefreshTokens:
             expires_at = datetime.fromtimestamp(expires_at_value, timezone.utc)
         else:
             expires_at = expires_at_value
-        query = insert(RefreshToken).values(email=email, 
+        query = insert(RefreshToken).values(user_name=name, 
                                                 jti=payload["jti"],
                                                 issued_at=issued_at,
                                                 expires_at=expires_at,
@@ -110,6 +121,7 @@ class RefreshTokens:
         try:
             await db.execute(query)
             await db.flush()
+            print(f"[DEBUG] : insert OK")
         except SQLAlchemyError:
             raise
         

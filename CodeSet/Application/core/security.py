@@ -13,29 +13,40 @@ from Application.core.exceptions import TokenAuth, Server
 RequiredClaims = {"sub", "jti", "iat", "typ", "iss", "exp"}
 
 def get_invalid_claims(payload: dict) -> set[str]:
+    # RequiredClaims 에 없는 claim 존재 여부 검사
+    extra = set(payload.keys()) - RequiredClaims
+    if extra:
+        return extra
+    # 존재하지 않는 필수 claim , 값이 결측된 claim 검사
     invalid = set()
     for claim in RequiredClaims:
-        # 키가 없거나
         if claim not in payload:
             invalid.add(claim)
             continue
-        # 값이 None 또는 빈 문자열
         value = payload[claim]
         if value is None or (isinstance(value, str) and value.strip() == ""):
             invalid.add(claim)
     return invalid
 
+def check_standard_claims(access_payload: dict, refresh_payload: dict, name: str) -> bool:
+    if access_payload.get("sub") != name or refresh_payload.get("sub") != name:
+        return False
+    if access_payload.get("typ") != ACCESS_TYPE or refresh_payload.get("typ") != REFRESH_TYPE:
+        return False
+    if access_payload.get("iss") != refresh_payload.get("iss") != ISSUER:
+        return False
+    return True
 
 class Token:
     # JWT ACCESS 토큰 생성
     @staticmethod
-    def create_access_token(email: str) -> str:
+    def create_access_token(name: str) -> str:
         now = datetime.now(timezone.utc)
         expire = now + timedelta(seconds= ACCESS_TOKEN_EXPIRE_SEC)
         payload = {"iat": int(now.timestamp()),
                    "exp": int(expire.timestamp()),
                    "jti": str(uuid.uuid4()),
-                   "sub": email,
+                   "sub": name,
                    "typ": ACCESS_TYPE,
                    "iss": ISSUER}
         try:
@@ -50,13 +61,13 @@ class Token:
 
     # JWT REFRESH 토큰 생성
     @staticmethod
-    def create_refresh_token(email: str) -> str:
+    def create_refresh_token(name: str) -> str:
         now = datetime.now(timezone.utc)
         expire = now + timedelta(seconds= REFRESH_TOKEN_EXPIRE_SEC)
         payload = {"iat": int(now.timestamp()),
                    "exp": int(expire.timestamp()),
                    "jti": str(uuid.uuid4()),
-                   "sub": email,
+                   "sub": name,
                    "typ": REFRESH_TYPE,
                    "iss": ISSUER}
         try:
@@ -71,18 +82,19 @@ class Token:
 
     # 두 token 모든 claim 검증, user_id 일치 확인
     @staticmethod
-    async def is_normal_tokens(db : AsyncSession, old_access : str, old_refresh : str, email : str | None) -> bool:
-        if old_access is None or old_refresh is None or email is None:
+    async def is_normal_tokens(db : AsyncSession, old_access : str, old_refresh : str, name : str | None) -> bool:
+        if old_access is None or old_refresh is None or name is None:
             return False
         now = datetime.now(timezone.utc)
         try:
             access_payload = jwt.decode(old_access, JWT_SECRET_KEY, [JWT_ALGORITHM], options={"verify_exp": False})
-            refresh_payload = jwt.decode(old_refresh, JWT_SECRET_KEY, [JWT_ALGORITHM], options={"verify_exp": False})
+            refresh_payload = jwt.decode(old_refresh, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM], options={"verify_exp": False})
+            # claim 검사
             access_invalid = get_invalid_claims(access_payload)
             refresh_invalid = get_invalid_claims(refresh_payload)
             if access_invalid or refresh_invalid:
                 return False
-            if email != access_payload.get("sub") != refresh_payload.get("sub") or access_payload.get("typ") != ACCESS_TYPE or refresh_payload.get("typ") != REFRESH_TYPE:
+            if not check_standard_claims(access_payload, refresh_payload, name):
                 #  Access 는 blacklist 에 등록, Refresh 토큰은 해당 record 가 있다면, revoked = True 설정
                 await AccessBlackList.add_blacklist_token(access_payload.get("jti"), access_payload.get("exp"))
                 await RefreshTokensTable.update_to_revoked(db, refresh_payload.get("jti"))
