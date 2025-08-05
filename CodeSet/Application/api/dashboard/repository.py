@@ -42,7 +42,7 @@ class ScoresDB:
         return rank_list
     
     @staticmethod
-    async def get_TotalScore_record(db: AsyncSession, name: str) -> TotalScore:
+    async def get_TotalScore_record(db: AsyncSession, name: str) -> TotalScore | None:
         query = select(TotalScore).where(TotalScore.user_name==name)
         result = await db.execute(query)
         return result.scalars().one_or_none()
@@ -65,7 +65,8 @@ class ScoresDB:
 class DailyDB:    
     @staticmethod
     async def get_recent_records(db: AsyncSession, name: str, cnt: int) -> List[UserDailyScore | None]:
-        query = (select(UserDailyScore).where(UserDailyScore.user_name == name)
+        query = (select(UserDailyScore).where(UserDailyScore.user_name == name,
+                                                     UserDailyScore.study_time.isnot(None))
                                 .order_by(desc(UserDailyScore.score_date),desc(UserDailyScore.start_time))
                                 .limit(cnt))
         result = await db.execute(query)
