@@ -7,13 +7,11 @@ def RunHTTP():
     uvicorn.run("Application.main:app", host="0.0.0.0", port=8000)
 
 def RunHTTPS():
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=8443,
-        ssl_keyfile="../Test/SSL/key.pem",
-        ssl_certfile="../Test/SSL/cert.pem",
-    )
+    uvicorn.run("Application.main:app",
+                host="0.0.0.0",
+                port=8443,
+                ssl_keyfile="../Test/SSL/key.pem",
+                ssl_certfile="../Test/SSL/cert.pem")
 
 if __name__ == "__main__":
     p1 = multiprocessing.Process(target=RunHTTP)
