@@ -16,7 +16,7 @@ class RealTimeService:
             except asyncio.TimeoutError:
                 continue
         if len(frames) < N_FRAMES:
-            raise asyncio.TimeoutError("프레임 부족 또는 수집 실패")
+            raise asyncio.TimeoutError()
         file_path = os.path.join(FRAME_DIR, user_name)
         os.makedirs(file_path, exist_ok=True)
         file_name = os.path.join(file_path, f"frames_{str(int(start))}.pkl")

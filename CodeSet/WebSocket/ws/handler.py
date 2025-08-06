@@ -14,7 +14,7 @@ manager = ConnectionManager()
 focus_tracker = FocusTracker()
 
 # HandShake 직후 최초 호출
-@router.websocket("/real-time") # 프론트에서 query string 끝에 user_name 입력해야함 !!
+@router.websocket("/real-time") # 프론트에서 query string 끝에 user_name, subject, location 입력해야함 !!
 async def websocket_endpoint(websocket: WebSocket,
                              db: AsyncSession = Depends(AsyncDB.get_db),
                              params: Dict = Depends(Get.Parameters)):
@@ -37,7 +37,7 @@ async def websocket_endpoint(websocket: WebSocket,
                 cur_focus = await ModelService.inference_focus(file_name)
                 focus_tracker.append_focus(user_name, cur_focus)
             except TimeoutError:
-                print(f"[LOG] : {user_name} Disconnected by 30s time-out.")
+                print(f"[LOG] : {user_name} Disconnected by time-out.")
                 focus_tracker.end_session(user_name)
                 await websocket.close(code=1000, reason="Timeout")
                 break
@@ -57,8 +57,9 @@ async def websocket_endpoint(websocket: WebSocket,
     # 근데, 실시간 현재 집중도 전송은 ??????????? 쒸발?????????
     # 유저가 연결하자마자 바로 끊은 경우 : compute_score에서 내부적으로 “데이터 유무 체크” & “예외처리/skip” 필요
 
-    # 1. 최근 학습 기록 기반 학습 시간동안의 집중도 score 계산 구현
-    # 2. 유저가 연결하자마자 바로 끊은 경우 : compute_score에서 내부적으로 “데이터 유무 체크” & “예외처리/skip” 구현
+    # 1. 최근 학습 기록 기반 학습 시간동안의 집중도 score 계산 구현 -> WAS 에서 수행
+    # 2. 유저가 연결하자마자 바로 끊은 경우 : compute_score에서 내부적으로 “데이터 유무 체크” & “예외처리/skip” 구현 
+    #       -> 최소 5분 초과만 학습 점수 연산 및 기록
     # 3. handler 의 while True 문단 좀 더럽다...
     # 4. 현재 웹소켓 서버  layer achitecture 좀더 생각해보기
     # 5. Nginx 만들어야지...
