@@ -10,7 +10,7 @@ def RunHTTPS():
     uvicorn.run("Application.main:app",
                 host="0.0.0.0",
                 port=8443,
-                ssl_keyfile="../Test/SSL/key.pem",
+                ssl_keyfile="../Test/SSL/dev.key",
                 ssl_certfile="../Test/SSL/cert.pem")
 
 if __name__ == "__main__":

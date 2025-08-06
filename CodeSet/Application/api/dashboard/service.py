@@ -22,9 +22,9 @@ def parse_time(t: time) -> str:
 
 class UserService:
     @staticmethod
-    async def parse_name(db: AsyncSession, email: str) -> str:
-        return await UsersDB.get_name(db, email)
-    
+    async def check_user_by_name(db: AsyncSession, user_name: str) -> bool:
+        return await UsersDB.exists_user_name(db, user_name)
+
 class RankingService:
     # 전체 active 사용자 수 반환
     @staticmethod
@@ -36,11 +36,9 @@ class RankingService:
         return await ScoresDB.sort_total_score(db)
 
 
-class MainService:
-    async def fetch_name(users_db: AsyncSession, email: str) -> str:
-        return await UsersDB.get_name(users_db, email)
-    
+class MainService:    
     # fetch main params
+    @staticmethod
     async def get_main_params(db: AsyncSession, name: str) -> dict:
         result = {}
         record = await ScoresDB.get_TotalScore_record(db, name)
@@ -62,7 +60,3 @@ class MainService:
                                   place=record.location if record is not None else "") 
                                   for record in records]
         return result
-    
-    # UserDailyScore 에 현재 학습 record 생성 (시작)
-    async def create_plan(db:AsyncSession, name: str, when: datetime, where: str, what: str) -> None:
-        await DailyDB.create_daily_record(db, name, when, where, what)

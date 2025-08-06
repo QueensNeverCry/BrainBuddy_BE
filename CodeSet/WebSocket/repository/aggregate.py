@@ -27,3 +27,4 @@ class UserDailyTable:
         data = asdict(record)
         orm_obj = UserDailyScore(**data)
         db.add(orm_obj)
+

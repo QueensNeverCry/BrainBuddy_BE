@@ -6,7 +6,8 @@ from Application.core.deps import AsyncDB, GetCurrentUser
 from Application.core.exceptions import Server
 
 from Application.api.dashboard.service import UserService, RankingService, MainService
-from Application.api.dashboard.schemas import RankingResponse, MainResponse, StudyPlanRequest, StudyPlanResponse
+from Application.api.dashboard.schemas import RankingResponse, MainResponse
+from Application.api.dashboard.exceptions import User
 
 
 router = APIRouter()
@@ -25,7 +26,6 @@ async def get_weekly_ranking(db: AsyncSession = Depends(AsyncDB.get_db)) -> Rank
         ranking = await RankingService.get_ranking_list(db)
         return RankingResponse(total_users=total, ranking=ranking)
     except SQLAlchemyError:
-        await db.rollback()
         raise Server.DB_ERROR.exc()
 
 
@@ -37,6 +37,8 @@ async def get_weekly_ranking(db: AsyncSession = Depends(AsyncDB.get_db)) -> Rank
 async def get_main_info(user_name: str = Depends(GetCurrentUser),
                         db: AsyncSession = Depends(AsyncDB.get_db)) -> MainResponse:
     await db.begin()
+    if not await UserService.check_user_by_name(db, user_name):
+        raise User.INVALID_USER.exc()
     params = await MainService.get_main_params(db, user_name)
     return MainResponse(status="success",
                         user_name=user_name,
@@ -46,29 +48,3 @@ async def get_main_info(user_name: str = Depends(GetCurrentUser),
                         total_study_cnt=params["total_study_cnt"],
                         # COMPONENT_CNT 보다 적은 개수인 경우, None 을 대체한 경우에 대해 공유할 것 !!!
                         history=await MainService.get_history(db, user_name))
-
-
-
-# 학습을 시작한 사용자의 학습 메타 데이터 기록 API [HTTPS POST : https://{ServerDNS}/api/dashboard/study-plan]
-@router.post(path="/study-plan",
-             summary="Create study plan",
-             description="Write current study's meta-data.")
-async def create_study_plan(payload: StudyPlanRequest,
-                            email: str = Depends(GetCurrentUser),
-                            db: AsyncSession = Depends(AsyncDB.get_db),) -> StudyPlanResponse:
-    try:
-        await db.begin()
-        name = await UserService.parse_name(db, email)
-        await MainService.create_plan(db, name, payload.when, payload.where, payload.what)
-        await db.commit()
-        return StudyPlanResponse(status="success", start_time=payload.when)
-    except SQLAlchemyError:
-        await db.rollback()
-        raise Server.DB_ERROR.exc()
-    # except Exception as e:
-    #     await db.rollback()
-    #     logging.error(f"Error in create_study_plan: {str(e)}")
-    #     traceback.print_exc()
-    #     raise HTTPException(status_code=status.HTTP_418_IM_A_TEAPOT,
-    #                         detail={"code": "DEBUG",
-    #                                 "message": "Need to branch error handling : study-plan api."})

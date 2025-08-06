@@ -55,11 +55,11 @@ async def websocket_endpoint(websocket: WebSocket,
                                       params["subject"])
     
     # 근데, 실시간 현재 집중도 전송은 ??????????? 쒸발?????????
-    # 유저가 연결하자마자 바로 끊은 경우 : compute_score에서 내부적으로 “데이터 유무 체크” & “예외처리/skip” 필요
 
     # 1. 최근 학습 기록 기반 학습 시간동안의 집중도 score 계산 구현 -> WAS 에서 수행
-    # 2. 유저가 연결하자마자 바로 끊은 경우 : compute_score에서 내부적으로 “데이터 유무 체크” & “예외처리/skip” 구현 
-    #       -> 최소 5분 초과만 학습 점수 연산 및 기록
+    #       - 직전 study 의 평균/최고/최저 집중도 또한 기록
+    #       - 컬럼을 확장 ? 아니면 단순히 study 기록을 분리...? (정규화 vs 비정규화)
+    # 2. 유저가 연결하자마자 바로 끊은 경우 : compute_score에서 내부적으로 “데이터 유무 체크” & “예외처리/skip” 구현  -> 최소 5분 초과만 학습 점수 연산 및 기록
     # 3. handler 의 while True 문단 좀 더럽다...
     # 4. 현재 웹소켓 서버  layer achitecture 좀더 생각해보기
     # 5. Nginx 만들어야지...
