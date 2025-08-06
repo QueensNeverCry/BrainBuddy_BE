@@ -1,6 +1,6 @@
 from typing import Dict
 from bitarray import bitarray
-from datetime import datetime, timezone, time
+from datetime import datetime, timezone, time, timedelta
 from dataclasses import dataclass
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,24 +36,25 @@ class FocusTracker:
         # 최근 학습 종합 집중도 계산
         bits, start, end = self.focus_dict[user_name]
         self.focus_dict.pop(user_name)
-        # 종합 집중도 계산 ~ 구현해라
-        score = 10
-        # ~ 종합 집중도 계산
         # score_date, start_time, study_time 계산
-        score_date = start.date()                  # Date
-        start_time = start.time()                  # Time HH:MM:SS
         duration = end - start                     # timedelta
-        hours, rem = divmod(duration.seconds, 3600)
-        minutes, seconds = divmod(rem, 60)
-        study_time = time(hour=hours, minute=minutes, second=seconds)
-        # DailyScoreRecord 객체 생성
-        record = DailyRecord(user_name=user_name,
-                             score_date=score_date,
-                             start_time=start_time,
-                             study_time=study_time,
-                             subject=subject,
-                             location=location,
-                             score=score)
-        # UserDailyTable 에 기록
-        async with db.begin():
-            await UserDailyTable.insert_daily(db, record)
+        if duration > timedelta(minutes=5):
+            score_date = start.date()                  # Date
+            start_time = start.time()                  # Time HH:MM:SS
+            hours, rem = divmod(duration.seconds, 3600)
+            minutes, seconds = divmod(rem, 60)
+            study_time = time(hour=hours, minute=minutes, second=seconds)
+            # 종합 집중도 계산 ~ 구현해라
+            score = 10
+            # ~ 종합 집중도 계산
+            # DailyScoreRecord 객체 생성
+            record = DailyRecord(user_name=user_name,
+                                 score_date=score_date,
+                                 start_time=start_time,
+                                 study_time=study_time,
+                                 subject=subject,
+                                 location=location,
+                                score=score)
+            # UserDailyTable 에 기록
+            async with db.begin():
+                await UserDailyTable.insert_daily(db, record)

@@ -1,5 +1,4 @@
 from sqlalchemy import Column, ForeignKey, UniqueConstraint, String, Integer, Double, Date, Time, func
-from datetime import datetime
 
 from WebSocket.models.db import Base
 
