@@ -18,4 +18,4 @@ BLACK_LIST_ID = int(os.getenv("BLACK_LIST_ID"))
 EXIST = int(os.getenv("EXIST"))
 MYSQL_DB_URL = os.getenv("MYSQL_DB_URL")
 LOCAL_DB_URL = os.getenv("LOCAL_DB_URL")
-COMPONENT_CNT = 3
+COMPONENT_CNT = 9

@@ -11,19 +11,18 @@ from Application.api.dashboard.schemas import UserRankingItem, UserHistoryItem
 
 # Users 테이블
 class UsersDB:
-    @staticmethod
-    async def get_name(db: AsyncSession, email: str) -> str:
-        query = select(User.user_name).where(User.email == email)
-        result = await db.execute(query)
-        name = result.scalar_one_or_none()
-        return name
-
     # "status" 컬럼이 "active"인 유저 수 집계
     @staticmethod 
     async def get_active_cnt(db: AsyncSession) -> int:
         query = select(func.count()).where(User.status == "active")
         result = await db.execute(query)
         return result.scalar_one()
+    
+    @staticmethod
+    async def exists_user_name(db: AsyncSession, user_name: str) -> bool:
+        query = select(exists().where(User.user_name == user_name))
+        result = await db.execute(query)
+        return result.scalar()
 
 
 class ScoresDB:
@@ -38,7 +37,7 @@ class ScoresDB:
         rank_list: List[UserRankingItem] = []
 
         for rank, (name, total_score, avg_focus, total_cnt) in enumerate(rows, start=1):
-            rank_list.append(UserRankingItem(rank=rank, score=total_score, user_name=name, total_cnt=total_cnt, avg_focus= avg_focus))
+            rank_list.append(UserRankingItem(rank=rank, score=total_score, user_name=name, total_cnt=total_cnt, avg_focus= avg_focus, trend= True))
         return rank_list
     
     @staticmethod
@@ -75,20 +74,3 @@ class DailyDB:
             records += [None] * (cnt - len(records))
         return records
     
-    # 아래의 함수는 WS 으로... websocket query string 의 끝에 parameter 로 받아서 하는게 더 나을거 같기도...
-
-    @staticmethod
-    async def create_daily_record(db:AsyncSession, name: str, when: datetime, where: str, what: str) -> None:
-        print(f"[DEBUG] :: (user name = {name})  (when = {when})  (where = {where})  (what = {what})")
-        record = UserDailyScore(user_name=name,
-                                score_date=when.date(),
-                                start_time=when.time(),
-                                study_time=None,
-                                subject=what,
-                                location=where)
-        try:
-            db.add(record)
-            await db.flush()
-            await db.refresh(record)
-        except SQLAlchemyError:
-            raise

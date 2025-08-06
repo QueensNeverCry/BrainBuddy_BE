@@ -8,6 +8,16 @@ class ErrorMetadata(NamedTuple):
     http_status: int
 
 
+class User(Enum):
+    INVALID_USER = ErrorMetadata("INVALID_USER",
+                                 "You are not valid user.",
+                                 status.HTTP_403_FORBIDDEN)
+    
+    def exc(self) -> HTTPException:
+        code, message, http_status = self.value
+        return HTTPException(status_code=http_status,
+                             detail={"code": code, "message": message})
+
 class Score(Enum):
     INVALID_FORMAT  = ErrorMetadata("INVALID_FORMAT", 
                                     "Invalid format.", 
