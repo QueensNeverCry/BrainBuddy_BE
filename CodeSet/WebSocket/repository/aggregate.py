@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, date, time
 from dataclasses import dataclass, asdict
 
-from WebSocket.models import TotalScore, UserDailyScore
+from WebSocket.orm import TotalScore, UserDailyScore
 
 @dataclass
 class DailyRecord:
@@ -14,6 +14,9 @@ class DailyRecord:
     subject:    str      # 학습 과목 (Subject)
     location:   str      # 학습 장소 (Location)
     score:      float    # 학습 점수 (Score)
+    avg_focus = float
+    min_focus = int
+    max_focus = int
 
 class TotalScoreTable:
     @staticmethod

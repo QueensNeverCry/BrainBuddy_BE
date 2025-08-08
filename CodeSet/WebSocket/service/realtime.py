@@ -1,6 +1,7 @@
 from fastapi import WebSocket
 import asyncio
 import time, os, pickle
+from datetime import datetime
 
 from WebSocket.core.config import TIME_OUT, N_FRAMES, FRAME_DIR
 
@@ -12,6 +13,7 @@ class RealTimeService:
         while len(frames) < N_FRAMES and (time.time() - start) < TIME_OUT:
             try:
                 frame = await asyncio.wait_for(websocket.receive_bytes(), 1.5)
+                print(f"[LOG] :     {type(frame)} - {datetime.now()}")
                 frames.append(frame)
             except asyncio.TimeoutError:
                 continue
@@ -22,4 +24,5 @@ class RealTimeService:
         file_name = os.path.join(file_path, f"frames_{str(int(start))}.pkl")
         with open(file_name, "wb") as f:
             pickle.dump(frames, f)
+        print(f"[LOG] :     frames -> {file_name}")
         return file_name

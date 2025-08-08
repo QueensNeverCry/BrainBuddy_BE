@@ -13,51 +13,53 @@ router = APIRouter()
 manager = ConnectionManager()
 focus_tracker = FocusTracker()
 
-# HandShake 직후 최초 호출
+# HandShake 최초 호출
 @router.websocket("/real-time") # 프론트에서 query string 끝에 user_name, subject, location 입력해야함 !!
 async def websocket_endpoint(websocket: WebSocket,
                              db: AsyncSession = Depends(AsyncDB.get_db),
-                             params: Dict = Depends(Get.Parameters)):
-    verdict = await TokenService.verify_tokens(db=db, access=params["access"], refresh=params["refresh"], user_name=params["name"])
+                             params: Dict = Depends(Get.Parameters)) -> None:
+    # verdict = await TokenService.verify_tokens(db=db, access=params["access"], 
+    #                                           refresh=params["refresh"], 
+    #                                           user_name=params["user_name"])
     # HandShake 수락
     await websocket.accept()
-    user_name = params["name"]
-    if verdict != TokenVerdict.VALID:
-        await websocket.close(code=verdict.code, reason=verdict.reason)
-        return
+    # if verdict != TokenVerdict.VALID:
+    #     await websocket.close(code=verdict.code, reason=verdict.reason)
+    #     return
     # ConnectionManager 등록 (user_name : websocket)
+    user_name = params["user_name"]
+    print(f"[CONNECTED] : {user_name}")
+    print(f"[CONNECTED] : {type(user_name)}")
     manager.connect(user_name, websocket)
     focus_tracker.init_user(user_name)
     try:
         while True:
             try:
-                # test 용 접속 메세지
-                await manager.send_personal_message(user_name, "Hello")
                 file_name = await RealTimeService.collect_frames(websocket, user_name)
-                cur_focus = await ModelService.inference_focus(file_name)
-                focus_tracker.append_focus(user_name, cur_focus)
+                # cur_focus = await ModelService.inference_focus(file_name)
+                cur_focus = await ModelService.test_inference(file_name)
+                result = focus_tracker.update_focus(user_name, cur_focus)
+                # result 를 client 에게 송신
+                await manager.send_current_focus(user_name, result)
             except TimeoutError:
-                print(f"[LOG] : {user_name} Disconnected by time-out.")
+                print(f"[LOG] : {user_name} disconnected by time-out.")
                 focus_tracker.end_session(user_name)
                 await websocket.close(code=1000, reason="Timeout")
                 break
             except WebSocketDisconnect:
                 focus_tracker.end_session(user_name)
-                print(f"[LOG] : {user_name} Disconnected from Client.")
+                print(f"[LOG] : {user_name} Client disconnected.")
                 break
     finally:
         manager.disconnect(user_name)
         print(f"[LOG] : {user_name} Disconnected.")
-    # focus_tracker 가 보관중인 순간 집중도 데이터로 최근 학습 집중도 연산 -> DB 저장
-    await focus_tracker.compute_score(db, 
-                                      user_name, 
-                                      params["location"], 
-                                      params["subject"])
+    score = await focus_tracker.compute_score(db, 
+                                              user_name, 
+                                              params["location"], 
+                                              params["subject"])
+    # await focus_tracker.update_total(db, user_name, score)
     
-    # 근데, 실시간 현재 집중도 전송은 ??????????? 쒸발?????????
 
-    # 1. 최근 학습 기록 기반 학습 시간동안의 집중도 score 계산 구현 -> WAS 에서 수행
-    #       - 직전 study 의 평균/최고/최저 집중도 또한 기록
     #       - 컬럼을 확장 ? 아니면 단순히 study 기록을 분리...? (정규화 vs 비정규화)
     # 2. 유저가 연결하자마자 바로 끊은 경우 : compute_score에서 내부적으로 “데이터 유무 체크” & “예외처리/skip” 구현  -> 최소 5분 초과만 학습 점수 연산 및 기록
     # 3. handler 의 while True 문단 좀 더럽다...

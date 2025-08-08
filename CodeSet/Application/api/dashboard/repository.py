@@ -36,7 +36,7 @@ class ScoresDB:
         rows = result.all()  # List[Tuple[str, float, float, int]]
         rank_list: List[UserRankingItem] = []
 
-        for rank, (name, total_score, avg_focus, total_cnt) in enumerate(rows, start=1):
+        for rank, (name, total_score, avg_focus, total_cnt) in enumerate(rows, start=1): # trend 로직 써야함 
             rank_list.append(UserRankingItem(rank=rank, score=total_score, user_name=name, total_cnt=total_cnt, avg_focus= avg_focus, trend= True))
         return rank_list
     
@@ -61,7 +61,7 @@ class ScoresDB:
         return higher_cnt + 1
 
 
-class DailyDB:    
+class DailyDB:
     @staticmethod
     async def get_recent_records(db: AsyncSession, name: str, cnt: int) -> List[UserDailyScore | None]:
         query = (select(UserDailyScore).where(UserDailyScore.user_name == name,
@@ -73,4 +73,13 @@ class DailyDB:
         if len(records) < cnt:
             records += [None] * (cnt - len(records))
         return records
-    
+
+    @staticmethod
+    async def get_recent_record(db: AsyncSession, name: str) -> UserDailyScore | None:
+        query = (select(UserDailyScore).where(UserDailyScore.user_name == name,
+                                                     UserDailyScore.study_time.isnot(None))
+                                .order_by(desc(UserDailyScore.score_date),
+                                                  desc(UserDailyScore.start_time))
+                                .limit(1))
+        result = await db.execute(query)
+        return result.scalars().first()

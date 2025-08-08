@@ -24,8 +24,10 @@ class AuthService:
         req.user_pw = req.user_pw_confirm = None
         # DB 저장 - Users 테이블
         await Users.register_user(db, User(email=req.email,user_name=req.user_name,user_pw=hashed_pw))
+        print(f"[LOG] :     {req.user_name} has registered on Users Table.")
         # DB 저장 - Score 테이블
         await TotalScoreDB.register_user(db, TotalScore(user_name=req.user_name))
+        print(f"[LOG] :     {req.user_name} has registered on TotalScore Table.")
         
     @staticmethod
     async def find_user(db: AsyncSession, request: LogInRequest) -> User | None:
