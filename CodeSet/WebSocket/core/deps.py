@@ -1,4 +1,4 @@
-from fastapi import WebSocket, WebSocketException, status
+from fastapi import WebSocket, WebSocketException, Cookie, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import AsyncGenerator, Dict, Set
 
@@ -6,7 +6,7 @@ from WebSocket.core.database import AsyncSessionLocal  # 공통 세션메이커(
 
 from WebSocket.core.config import ACCESS, REFRESH
 
-Required: Set[str] = {"user_name", "subject", "location", ACCESS, REFRESH}
+RequiredQuery: Set[str] = {"user_name", "subject", "location"}
 
 class Get:
     @staticmethod
@@ -14,16 +14,27 @@ class Get:
         params: Dict[str, str] = {}
         seen: Set[str] = set()
         for key, value in websocket.query_params.items():
-            if key in Required:
+            if key in RequiredQuery:
+                if value is None or value.strip() == "" or value == "undefined":
+                    print(f"[LOG] : None or Undefined parameter : {key}")
+                    raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
                 params[key] = value
                 seen.add(key)
             else:
                 # 허용되지 않은 파라미터 발견 시 즉시 거부
                 raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
         # 빠진 필수 파라미터 검사
-        missing = Required - seen
+        missing = RequiredQuery - seen
         if missing:
             raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
+        params["access"] = websocket.cookies.get(ACCESS)
+        if params["access"] is None:
+            print(f"[LOG] : {params["user_name"]} - No Access Token")
+            # raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
+        params["refresh"] = websocket.cookies.get(REFRESH)
+        if params["refresh"] is None:
+            print(f"[LOG] : {params["user_name"]} - No Refresh Token")
+            # raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
         return params
         
 

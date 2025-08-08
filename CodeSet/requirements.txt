@@ -12,5 +12,6 @@ uvicorn==0.35.0
 
 bitarray==3.6.0
 torch==2.7.1
+pillow==11.3.0
 
 openssl==OpenSSL 3.0.15 3 Sep 2024

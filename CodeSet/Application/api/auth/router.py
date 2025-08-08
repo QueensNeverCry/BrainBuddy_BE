@@ -29,6 +29,7 @@ async def sign_up(request: SignUpRequest,
         await db.begin()
         email = request.email
         user_name = request.user_name
+        print(f"[LOG] : {user_name} requested sign - up.")
         if await AuthService.check_duplicate(db, email, user_name):
             raise SignUp.USER_EXISTS.exc()
         # 비밀번호 해싱 및 DB 저장

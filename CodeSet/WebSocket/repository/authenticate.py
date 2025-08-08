@@ -4,7 +4,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime, timezone
 from typing import Union
 
-from WebSocket.models import RefreshToken
+from WebSocket.orm import RefreshToken
 from WebSocket.core.config import LOCAL, REDIS_PORT, BLACK_LIST_ID, EXIST
 
 import redis.asyncio as aioredis

@@ -1,9 +1,7 @@
 import os
 from dotenv import load_dotenv
 
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-dotenv_path = os.path.join(base_dir, ".env")
-load_dotenv(dotenv_path=dotenv_path)
+load_dotenv()
 
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
@@ -23,5 +21,5 @@ LOCAL_DB_URL = os.getenv("LOCAL_DB_URL")
 
 TIME_OUT = 30
 N_FRAMES = 30
-FRAME_DIR = ""
+FRAME_DIR = "/Users/v/SUN_RAT/I_AM_SEXY_QUEEN/BrainBuddy_BE/Test/IMG"
 MODEL_PATH = ""

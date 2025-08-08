@@ -6,7 +6,7 @@ from Application.core.deps import AsyncDB, GetCurrentUser
 from Application.core.exceptions import Server
 
 from Application.api.dashboard.service import UserService, RankingService, MainService
-from Application.api.dashboard.schemas import RankingResponse, MainResponse
+from Application.api.dashboard.schemas import RankingResponse, MainResponse, ReportRequest, ReportResponse
 from Application.api.dashboard.exceptions import User
 
 
@@ -48,3 +48,21 @@ async def get_main_info(user_name: str = Depends(GetCurrentUser),
                         total_study_cnt=params["total_study_cnt"],
                         # COMPONENT_CNT 보다 적은 개수인 경우, None 을 대체한 경우에 대해 공유할 것 !!!
                         history=await MainService.get_history(db, user_name))
+
+
+
+# 사용자의 학습 종료 직후 분석 결과 데이터 요청 API [HTTPS GET : https://{ServerDNS}/api/dashboard/analytics]
+@router.post(path="/analytics",
+             summary="User Learning Analytics Request",
+             description="Return the analysis result data immediately after the user's study session ends.")
+async def get_study_report(request: ReportRequest,
+                           user_name: str = Depends(GetCurrentUser),
+                           db: AsyncSession = Depends(AsyncDB.get_db)) -> Response:
+    await db.begin()
+    if not await UserService.check_user_by_name(db, user_name) or request.user_name != user_name:
+        raise User.INVALID_USER.exc()
+    record = await MainService.fetch_recent_study(db, user_name)
+    return ReportResponse(avg_focus=record.avg_focus,
+                          min_focus=record.min_focus,
+                          max_focus=record.max_focus,
+                          duration=record.study_time.strftime("%H:%M"))

@@ -5,7 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from Application.api.auth import router as auth_router
 from Application.api.dashboard import router as dashboard_router
-from Application.api.analysis import router as analyis_router
 
 
 app = FastAPI()
@@ -18,7 +17,6 @@ app.add_middleware(CORSMiddleware,
 
 app.include_router(auth_router, prefix="/api/auth")
 app.include_router(dashboard_router, prefix="/api/dashboard")
-app.include_router(analyis_router, prefix="/api/analysis")
 
 @app.exception_handler(HTTPException)
 async def custom_error_handler(request: Request, exc: HTTPException):

@@ -41,3 +41,14 @@ class Daily(Enum):
         code, message, http_status = self.value
         return HTTPException(status_code=http_status,
                              detail={"code": code, "message": message})
+    
+
+class Report(Enum):
+    FORBIDDEN       = ErrorMetadata("FORBIDDEN",
+                                    "That was a rather convoluted request.",
+                                    status.HTTP_403_FORBIDDEN)
+    
+    def exc(self) -> HTTPException:
+        code, message, http_status = self.value
+        return HTTPException(status_code=http_status,
+                             detail={"code": code, "message": message})

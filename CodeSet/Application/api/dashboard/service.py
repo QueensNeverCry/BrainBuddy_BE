@@ -60,3 +60,7 @@ class MainService:
                                   place=record.location if record is not None else "") 
                                   for record in records]
         return result
+
+
+    async def fetch_recent_study(db: AsyncSession, name: str) -> UserDailyScore:
+        return await DailyDB.get_recent_record(db, name)
