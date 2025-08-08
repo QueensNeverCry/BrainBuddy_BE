@@ -22,3 +22,5 @@ extendedKeyUsage = serverAuth
 DNS.1 = localhost
 IP.1 = 127.0.0.1
 IP.2 = 10.221.251.81
+IP.2 = 10.221.251.80
+IP.3 = 192.168.0.15
