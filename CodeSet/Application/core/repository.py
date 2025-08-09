@@ -37,9 +37,7 @@ class RefreshTokensTable:
                                         .execution_options(synchronize_session="fetch"))
         try:
             await db.execute(query)
-            await db.flush()
         except SQLAlchemyError:
-            await db.rollback()
             raise
         
     @staticmethod

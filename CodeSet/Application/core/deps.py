@@ -20,6 +20,18 @@ def GetCurrentUser(request: Request) -> str:
         return user_name
     except Exception:
         raise Server.SERVER_ERROR.exc()
+    
+def ParseName(request: Request) -> str:
+    token = request.cookies.get(ACCESS)
+    if not token:
+        raise TokenAuth.TOKEN_INVALID.exc()
+    try:
+        user_name = Token.parse_name(token)
+        if user_name is None:
+            raise TokenAuth.TOKEN_INVALID.exc()
+        return user_name
+    except Exception:
+        raise Server.SERVER_ERROR.exc()
 
 class AsyncDB:
     async def get_db() -> AsyncGenerator[AsyncSession, None]:
