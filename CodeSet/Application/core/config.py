@@ -19,3 +19,4 @@ EXIST = int(os.getenv("EXIST"))
 MYSQL_DB_URL = os.getenv("MYSQL_DB_URL")
 LOCAL_DB_URL = os.getenv("LOCAL_DB_URL")
 COMPONENT_CNT = 9
+STUDY_TIME_THRESHOLD = 300

@@ -25,11 +25,11 @@ async def custom_error_handler(request: Request, exc: HTTPException):
     # detail에서 code/message 사용
     if isinstance(detail, dict):
         code = detail.get("code", "INTERNAL_SERVER_ERROR")
-        message = detail.get("message", "WHY MESSAGE FIELD IS EMPTY ?")
+        message = detail.get("message", "WHY MESSAGE FIELD IS EMPTY ? BACKEND NEED TO CHECK exceptions.py files")
     else:
         code = "INTERNAL_SERVER_ERROR"
         message = str(detail)
-    # 응답    
+    # 약속된 형식에 맞춰서 Error 응답
     return JSONResponse(status_code=status_code,
                         content={"status": "fail",
                                  "code": code,

@@ -1,50 +1,45 @@
-from sqlalchemy import select, update, delete, insert, exists
+from sqlalchemy import select, update, delete, insert, exists, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime, timezone
 import logging
 
 from Application.models.users import User
-from Application.models.score import TotalScore
+from Application.models.score import TotalScore, UserDailyScore
 from Application.models.security import RefreshToken
 
 
-class Users:
+class UsersDB:
     @staticmethod
-    async def exists_user_email(db: AsyncSession, email: str) -> bool:
-        query = select(exists().where(User.email == email))
+    async def exist_user(db: AsyncSession, email: str, user_name: str) -> bool:
+        query = select(exists().where((User.email == email) | (User.user_name == user_name)))
         result = await db.execute(query)
-        return result.scalar()
-    
-    @staticmethod
-    async def exists_user_name(db: AsyncSession, user_name: str) -> bool:
-        query = select(exists().where(User.user_name == user_name))
-        result = await db.execute(query)
-        return result.scalar()
+        return bool(result.scalar())
     
     @staticmethod
     async def get_user(db: AsyncSession, email: str) -> User | None:
         query = select(User).where(User.email == email)
         result = await db.execute(query)
         user = result.scalar_one_or_none()
-        if user is None:
-            return None
         return user
+    
+    @staticmethod
+    async def is_valid_user(db: AsyncSession, user_name: str) -> bool:
+        cond = and_(User.user_name == user_name, User.status == "active")
+        query = select(exists().where(cond))
+        res = await db.execute(query)
+        return bool(res.scalar_one())
     
     @staticmethod
     async def get_email_by_name(db: AsyncSession, name: str) -> str | None:
         query = select(User.email).where(User.user_name == name)
         result = await db.execute(query)
         email = result.scalar_one_or_none()
-        if email is None:
-            return None
         return email
 
     @staticmethod
     async def register_user(db: AsyncSession, user: User) -> None:
         db.add(user)
-        await db.flush()
-        await db.refresh(user)
     
     @staticmethod
     async def is_active_user(db: AsyncSession, name: str) -> bool:
@@ -57,11 +52,12 @@ class Users:
         query = delete(User).where(User.email == email)
         try:
             await db.execute(query)
-            await db.flush()
         except SQLAlchemyError:
             raise
 
-class RefreshTokens:
+
+
+class RefreshTokensDB:
     @staticmethod
     async def purge_user_tokens(db: AsyncSession, name: str) -> None:
         now = datetime.now(timezone.utc)
@@ -118,23 +114,31 @@ class RefreshTokens:
                                                 revoked=False)
         try:
             await db.execute(query)
-            await db.flush()
         except SQLAlchemyError:
             raise
         
+
 
 class TotalScoreDB:
     @staticmethod
     async def register_user(db: AsyncSession, record: TotalScore) -> None:
         db.add(record)
-        await db.flush()         # SQL 전송 + PK 할당
-        await db.refresh(record)
 
     @staticmethod
     async def delete_user(db: AsyncSession, name: str) -> None:
         query = delete(TotalScore).where(TotalScore.user_name == name)
         try:
             await db.execute(query)
-            await db.flush()
+        except SQLAlchemyError:
+            raise
+
+
+
+class DailyDB:
+    @staticmethod
+    async def delete_records(db: AsyncSession, name: str) -> None:
+        query = delete(table=UserDailyScore).where(UserDailyScore.user_name == name)
+        try:
+            await db.execute(query)
         except SQLAlchemyError:
             raise
