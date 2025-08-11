@@ -1,0 +1,20 @@
+[ req ]
+default_bits       = 4096
+prompt             = no
+default_md         = sha256
+x509_extensions    = v3_ca
+distinguished_name = dn
+
+[ dn ]
+C  = KR
+ST = Seoul
+L  = Seoul
+O  = BrainBuddy
+CN = BrainBuddy Root CA
+
+[ v3_ca ]
+basicConstraints = critical, CA:TRUE, pathlen:1
+keyUsage = critical, keyCertSign, cRLSign
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid:always
+# EKU(extendedKeyUsage)는 CA에 불필요하므로 생략

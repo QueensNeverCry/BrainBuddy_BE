@@ -1,0 +1,10 @@
+services:
+  nginx:
+    image: nginx:1.29-alpine              # 공식 이미지 활용 (build 불필요)
+    ports:
+      - "8443:8443"
+    volumes:
+      - ../nginx:/etc/nginx:ro            # Nginx 설정(nginx.conf, http.d, stream.d, snippets)
+      - ../html:/usr/share/nginx/html:ro  # 정적 리소스
+      - ../certs/dev:/etc/nginx/certs/dev:ro  # dev 인증서(fullchain.pem, server.key)
+    restart: unless-stopped
