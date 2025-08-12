@@ -4,7 +4,7 @@ from datetime import datetime, timezone, time, timedelta
 from dataclasses import dataclass, field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from WebSocket.repository import TotalScoreTable, UserDailyTable, DailyRecord
+from WebSocket.repository import ScoreDB, StudyDB, DailyRecord
 
 @dataclass
 class FocusInfo:
@@ -66,9 +66,9 @@ class FocusTracker:
                                  avg_focus= avg,
                                  min_focus= mn,
                                  max_focus= mx)
-            # UserDailyTable 에 기록
-            # async with db.begin():
-                # await UserDailyTable.insert_daily(db, record)
+            # StudyDB 에 기록
+            async with db.begin():
+                await StudyDB.insert_daily(db, record)
             return score
         else:
             return -1

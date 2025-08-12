@@ -76,9 +76,9 @@ class TokenService:
         if exp_access < now:
             return TokenVerdict.ACCESS_TOKEN_EXPIRED
         # refresh 토큰이 revoked 인 경우
-        revoked = await RefreshTokensTable.is_revoked(db, jti)
-        if revoked:
-            async with db.begin():
+        async with db.begin():
+            revoked = await RefreshTokensTable.is_revoked(db, jti)
+            if revoked:
                 await AccessBlackList.add_blacklist_token(ap.get("jti"), ap.get("exp"))
             return TokenVerdict.INVALID_TOKEN
         # access 토큰의 blacklist 검사

@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, date, time
 from dataclasses import dataclass, asdict
 
-from WebSocket.orm import TotalScore, UserDailyScore
+from WebSocket.orm import TotalScore, StudySession
 
 @dataclass
 class DailyRecord:
@@ -18,16 +18,16 @@ class DailyRecord:
     min_focus = int
     max_focus = int
 
-class TotalScoreTable:
+class ScoreDB:
     @staticmethod
     async def func_1():
         x = 10
 
-class UserDailyTable:
+class StudyDB:
     @staticmethod
     async def insert_daily(db: AsyncSession, record: DailyRecord):
         # dataclass → dict → ORM 인스턴스
         data = asdict(record)
-        orm_obj = UserDailyScore(**data)
+        orm_obj = StudySession(**data)
         db.add(orm_obj)
 
