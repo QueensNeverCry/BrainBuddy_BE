@@ -9,11 +9,11 @@ from Application.api.dashboard import router as dashboard_router
 
 app = FastAPI()
 
-# app.add_middleware(CORSMiddleware,
-#                    allow_origins=["*"],
-#                    allow_credentials=True,
-#                    allow_methods=["*"],
-#                    allow_headers=["*"])
+app.add_middleware(CORSMiddleware,
+                   allow_origins=["*"],
+                   allow_credentials=True,
+                   allow_methods=["*"],
+                   allow_headers=["*"])
 
 app.include_router(auth_router, prefix="/api/auth")
 app.include_router(dashboard_router, prefix="/api/dashboard")

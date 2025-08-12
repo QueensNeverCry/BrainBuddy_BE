@@ -16,8 +16,11 @@ class SignUp(Enum):
     FORBIDDEN       = ErrorMetadata("FORBIDDEN", 
                                     "SSIBAL !!! ", 
                                     status.HTTP_403_FORBIDDEN)
-    USER_EXISTS     = ErrorMetadata("USER_EXISTS", 
-                                    "User ID or Name already exists.", 
+    NAME_EXISTS     = ErrorMetadata("NAME_EXISTS", 
+                                    "User Name already exists.", 
+                                    status.HTTP_409_CONFLICT)
+    EMAIL_EXISTS     = ErrorMetadata("EMAIL_EXISTS", 
+                                    "User email already exists.", 
                                     status.HTTP_409_CONFLICT)
     INVALID_FORMAT  = ErrorMetadata("INVALID_FORMAT",
                                     "Invalid field(s). Please write again.",

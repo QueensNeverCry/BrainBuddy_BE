@@ -1,4 +1,4 @@
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, EmailStr, SecretStr
 from pydantic import Field, model_validator, field_validator
 from typing import Type, Dict, Any
 import hmac, re

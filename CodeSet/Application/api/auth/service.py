@@ -44,9 +44,12 @@ class AuthService:
     # READ-ONLY process
     # email 또는 user_name 이 일치한 사용자 확인
     @staticmethod
-    async def check_duplicate(db: AsyncSession, email: str, user_name: str) -> bool:
+    async def check_duplicate(db: AsyncSession, email: str, user_name: str) -> None:
         async with db.begin():
-            return await UsersDB.exist_user(db=db, email=email, user_name=user_name)
+            if await UsersDB.check_name(db, user_name):
+                raise SignUp.NAME_EXISTS.exc()
+            if await UsersDB.check_email(db, email):
+                raise SignUp.EMAIL_EXISTS.exc()
     
     # WRITE process
     # 회원가입을 요청한 사용자의 정보 DB 추가

@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Request, Response, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
+from jose import ExpiredSignatureError
 import logging
 
 from Application.core.deps import AsyncDB, GetCurrentUser, ParseName
 from Application.core.exceptions import Server
 
 from Application.api.auth.service import AuthService, TokenService
-from Application.api.auth.exceptions import SignUp, Login, Withdraw
+from Application.api.auth.exceptions import Login, Withdraw
 from Application.api.auth.schemas import SignUpRequest, SignUpResponse, LogInRequest, LogInResponse, RenewResponse, LogOutResponse, WithdrawRequest, WithdrawResponse
 
 
@@ -29,8 +30,7 @@ async def sign_up(request: SignUpRequest,
         user_name = request.user_name
         print(f"[LOG] : {user_name} requested sign - up.")
         # email, user_name 중복 검사
-        if await AuthService.check_duplicate(db, email, user_name):
-            raise SignUp.USER_EXISTS.exc()
+        await AuthService.check_duplicate(db, email, user_name)
         # 비밀번호 해싱 및 DB 저장
         await AuthService.register_user(db, request)
         return SignUpResponse(user_name=user_name)
@@ -48,7 +48,7 @@ async def login(request: LogInRequest,
                 response: Response,
                 db: AsyncSession = Depends(AsyncDB.get_db)) -> LogInResponse:
     try:
-        # ID 와 PW 가 일치한 사용자 조회
+        # email 와 PW 가 일치한 사용자 조회
         user_name = await AuthService.find_user(db, request)
         if user_name == "":
             raise Login.USER_NOT_FOUND.exc()
@@ -90,6 +90,8 @@ async def logout(request: Request,
     try:
         await TokenService.verify_tokens(db, request, response, name)
         await TokenService.handle_logout_tokens(db, request, response)
+        return LogOutResponse()
+    except ExpiredSignatureError:
         return LogOutResponse()
     except SQLAlchemyError:
         raise Server.DB_ERROR.exc()

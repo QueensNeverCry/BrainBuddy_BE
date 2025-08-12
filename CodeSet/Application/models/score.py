@@ -5,7 +5,7 @@ from Application.models.db import Base
 
 # 사용자의 학습 score 관리
 class TotalScore(Base):
-    __tablename__ = "TotalScore"  
+    __tablename__ = "TotalScore"
 
     id = Column(Integer, primary_key=True, autoincrement= True)
     user_name = Column(String(16), ForeignKey("Users.user_name"), unique=True, nullable=False)

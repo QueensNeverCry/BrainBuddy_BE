@@ -12,6 +12,18 @@ from Application.models.security import RefreshToken
 
 class UsersDB:
     @staticmethod
+    async def check_name(db: AsyncSession, name: str) -> bool:
+        query = select(exists().where(User.user_name == name))
+        result = await db.execute(query)
+        return bool(result.scalar())
+    
+    @staticmethod
+    async def check_email(db: AsyncSession, email: str) -> bool:
+        query = select(exists().where(User.email == email))
+        result = await db.execute(query)
+        return bool(result.scalar())
+    
+    @staticmethod
     async def exist_user(db: AsyncSession, email: str, user_name: str) -> bool:
         query = select(exists().where((User.email == email) | (User.user_name == user_name)))
         result = await db.execute(query)
