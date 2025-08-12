@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Response, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
+import logging
 
 from Application.core.deps import AsyncDB, GetCurrentUser, ParseName
 from Application.core.exceptions import Server

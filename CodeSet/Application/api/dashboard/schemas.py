@@ -26,7 +26,9 @@ class UserHistoryItem(BaseModel):
     time: str         # 시작 시간 (예: "15:30:00") -> ("오후 HH:MM")
     duration: int     # 학습 시간 (123)
     place: str        # 학습 장소 ("학교")
-#   report_id: int    # 리포트 ID (보류)
+    avg_focus: float
+    min_focus: int
+    max_focus: int
 
 # 직전 완료한 학습에 대한 레포트
 class UserRecentReport(BaseModel):

@@ -3,9 +3,9 @@ from datetime import time, datetime
 from typing import List
 
 from Application.core.config import COMPONENT_CNT
-from Application.models.score import UserDailyScore
+from Application.models.score import StudySession
 
-from Application.api.dashboard.repository import UsersDB, ScoreDB, DailyDB
+from Application.api.dashboard.repository import UsersDB, ScoreDB, StudyDB
 from Application.api.dashboard.schemas import UserRankingItem, UserHistoryItem, UserRecentReport
 
 
@@ -33,13 +33,15 @@ class RankingService:
     # READ-ONLY process
     @staticmethod
     async def get_total_cnt(db: AsyncSession) -> int:
-        return await UsersDB.get_active_cnt(db)
+        async with db.begin():
+            return await UsersDB.get_active_cnt(db)
 
     # 주간 랭킹 리스트 List 반환
     # READ-ONLY process
     @staticmethod
     async def get_ranking_list(db: AsyncSession) -> List[UserRankingItem]:
-        return await ScoreDB.sort_total_score(db)
+        async with db.begin():
+            return await ScoreDB.sort_total_score(db)
 
 
 class MainService:    
@@ -48,9 +50,10 @@ class MainService:
     @staticmethod
     async def get_main_params(db: AsyncSession, name: str) -> dict:
         result = {}
-        record = await ScoreDB.get_TotalScore_record(db, name)
-        rank = await ScoreDB.get_user_rank(db, name)
-        result["total_users"] = await UsersDB.get_active_cnt(db)
+        async with db.begin():
+            record = await ScoreDB.get_TotalScore_record(db, name)
+            rank = await ScoreDB.get_user_rank(db, name)
+            result["total_users"] = await UsersDB.get_active_cnt(db)
         result["avg_focus"] = record.avg_score if record else 0
         result["total_study_cnt"] = record.total_cnt if record else 0
         result["rank"] = str(rank) if rank else "-"
@@ -59,13 +62,17 @@ class MainService:
     # 사용자에 대한 COMPONENT_CNT 개수의 과거 학습 분석 기록 리스트 반환
     # READ-ONLY process
     async def get_history(db: AsyncSession, name: str) -> List[UserHistoryItem]:
-        records : List[UserDailyScore | None] = await DailyDB.get_prev_records(db, name, COMPONENT_CNT)
+        async with db.begin():
+            records : List[StudySession | None] = await StudyDB.get_prev_records(db, name, COMPONENT_CNT)
         result = [UserHistoryItem(date=str(record.started_at.date()) if record else "",
                                   score=record.score if record else 0,
                                   subject=record.subject if record else "",
                                   time=parse_time(record.started_at) if record else "",
                                   duration=parse_minutes(record.study_time) if record else 0,
-                                  place=record.location if record else "")
+                                  place=record.location if record else "",
+                                  avg_focus=record.avg_focus if record else 0.0,
+                                  min_focus=record.min_focus if record else 0,
+                                  max_focus=record.max_focus if record else 0)
                                   
                                   for record in records]
         return result
@@ -73,7 +80,8 @@ class MainService:
     # 사용자의 직전에 완료한 학습 결과 데이터 반환
     # READ-ONLY process
     async def fetch_recent_study(db: AsyncSession, name: str) -> UserRecentReport | None:
-        row : UserDailyScore | None = await DailyDB.get_recent_record(db, name)
+        async with db.begin():
+            row : StudySession | None = await StudyDB.get_recent_record(db, name)
         if row:
             return UserRecentReport(score=row.score,
                                     duration=change_format(row.study_time),

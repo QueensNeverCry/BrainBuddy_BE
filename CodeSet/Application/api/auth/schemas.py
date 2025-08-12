@@ -97,10 +97,10 @@ class LogInRequest(BaseModel):
         # Endpoint 도달 전, pydantic 모델로 schema 검증 : email 길이 검사
     @field_validator("email")
     @classmethod
-    def check_id_length(cls: Type["LogInRequest"], email: str) -> str:
+    def check_email_length(cls: Type["LogInRequest"], email: str) -> str:
         if not (5 <= len(email) <= 32):
             raise Login.WRONG_FORMAT.exc()
-        return id
+        return email
         # Endpoint 도달 전, pydantic 모델로 schema 검증 : user_pw 길이 검사
     @field_validator("user_pw")
     @classmethod
@@ -158,10 +158,10 @@ class WithdrawRequest(BaseModel):
         # Endpoint 도달 전, pydantic 모델로 schema 검증 : 모든 email 형식 확인
     @field_validator("email")
     @classmethod
-    def check_id_length(cls: Type["WithdrawRequest"], email: str) -> str:
+    def check_email_length(cls: Type["WithdrawRequest"], email: str) -> str:
         if not (5 <= len(email) <= 32):
             raise Withdraw.INVALID_FORMAT.exc()
-        return id
+        return email
         # Endpoint 도달 전, pydantic 모델로 schema 검증 : 모든 user_pw 형식 확인
     @field_validator("user_pw")
     @classmethod

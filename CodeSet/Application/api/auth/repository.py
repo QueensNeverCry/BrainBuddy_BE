@@ -5,8 +5,9 @@ from datetime import datetime, timezone
 import logging
 
 from Application.models.users import User
-from Application.models.score import TotalScore, UserDailyScore
+from Application.models.score import TotalScore, StudySession
 from Application.models.security import RefreshToken
+
 
 
 class UsersDB:
@@ -57,14 +58,36 @@ class UsersDB:
 
 
 
-class RefreshTokensDB:
+class RefreshDB:
     @staticmethod
     async def purge_user_tokens(db: AsyncSession, name: str) -> None:
         now = datetime.now(timezone.utc)
-        # DELETE 쿼리: user_id 일치 + (expires_at <= now OR revoked = True)
+        # DELETE 쿼리: user_name 일치 + (expires_at <= now OR revoked = True)
         query = (delete(RefreshToken).where(RefreshToken.user_name == name,  
-                                                (RefreshToken.expires_at <= now) | (RefreshToken.revoked == True))
+                                                ((RefreshToken.expires_at <= now) | (RefreshToken.revoked == True)))
                                            .execution_options(synchronize_session="fetch") )
+        try:
+            await db.execute(query)
+        except SQLAlchemyError:
+            raise
+
+    @staticmethod
+    async def insert_token(db: AsyncSession, payload: dict, name: str) -> None:
+        issued_at_value = payload["iat"]
+        if isinstance(issued_at_value, (int, float)):
+            issued_at = datetime.fromtimestamp(issued_at_value, timezone.utc)
+        else: # 이미 datetime 객체인 경우
+            issued_at = issued_at_value 
+        expires_at_value = payload["exp"]
+        if isinstance(expires_at_value, (int, float)):
+            expires_at = datetime.fromtimestamp(expires_at_value, timezone.utc)
+        else:
+            expires_at = expires_at_value
+        query = insert(RefreshToken).values(user_name=name, 
+                                                jti=payload["jti"],
+                                                issued_at=issued_at,
+                                                expires_at=expires_at,
+                                                revoked=False)
         try:
             await db.execute(query)
         except SQLAlchemyError:
@@ -95,28 +118,6 @@ class RefreshTokensDB:
         except SQLAlchemyError:
             raise
         
-    @staticmethod
-    async def insert_token(db: AsyncSession, payload: dict, name: str) -> None:
-        issued_at_value = payload["iat"]
-        if isinstance(issued_at_value, (int, float)):
-            issued_at = datetime.fromtimestamp(issued_at_value, timezone.utc)
-        else: # 이미 datetime 객체인 경우
-            issued_at = issued_at_value 
-        expires_at_value = payload["exp"]
-        if isinstance(expires_at_value, (int, float)):
-            expires_at = datetime.fromtimestamp(expires_at_value, timezone.utc)
-        else:
-            expires_at = expires_at_value
-        query = insert(RefreshToken).values(user_name=name, 
-                                                jti=payload["jti"],
-                                                issued_at=issued_at,
-                                                expires_at=expires_at,
-                                                revoked=False)
-        try:
-            await db.execute(query)
-        except SQLAlchemyError:
-            raise
-        
 
 
 class TotalScoreDB:
@@ -134,10 +135,10 @@ class TotalScoreDB:
 
 
 
-class DailyDB:
+class StudyDB:
     @staticmethod
     async def delete_records(db: AsyncSession, name: str) -> None:
-        query = delete(table=UserDailyScore).where(UserDailyScore.user_name == name)
+        query = delete(table=StudySession).where(StudySession.user_name == name)
         try:
             await db.execute(query)
         except SQLAlchemyError:

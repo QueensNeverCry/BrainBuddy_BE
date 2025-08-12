@@ -102,8 +102,7 @@ class Token:
             result = await RefreshTokensTable.is_revoked(db, jti)
             if result is False:
                 # 해당 refresh token record 의 revoked = True 처리
-                async with db.begin():
-                    await RefreshTokensTable.update_to_revoked(db, jti)
+                await RefreshTokensTable.update_to_revoked(db, jti)
             else:
                 access_payload = jwt.decode(old_access_token, JWT_SECRET_KEY, [JWT_ALGORITHM], options={"verify_exp": False})
                 await AccessBlackList.add_blacklist_token(access_payload.get("jti"), access_payload.get("exp"))

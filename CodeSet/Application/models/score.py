@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, UniqueConstraint, String, Integer, Double, DateTime, Time, func
+from sqlalchemy import Column, ForeignKey, UniqueConstraint, String, Integer, Double, DateTime, Boolean, func
 
 from Application.models.db import Base
 
@@ -12,11 +12,11 @@ class TotalScore(Base):
     total_score = Column(Integer, nullable=False, default=0) # 사용자의 기간 내 종합 점수
     avg_score = Column(Double, nullable=False, default=0.0) # 사용자의 기간 내 평균 점수
     total_cnt = Column(Integer, nullable=False, default=0) # 사용자의 전체 기간 동안 학습한 횟수
-    trend = Column(bool, nullable=False, default=True)
+    trend = Column(Boolean, nullable=False, default=True)
 
 # 사용자의 학습 일, 학습 시간, 학습 과목, 학습 장소 단위 score 기록
-class UserDailyScore(Base):
-    __tablename__ = "UserDailyScore"
+class StudySession(Base):
+    __tablename__ = "StudySession"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_name = Column(String(16), ForeignKey("Users.user_name"), nullable=False)
@@ -24,7 +24,7 @@ class UserDailyScore(Base):
     study_time = Column(Integer, nullable=True)      # 학습 시간(초 단위)
     subject = Column(String(32), nullable=False)   # 학습 과목(Subject)
     location = Column(String(32), nullable=False)  # 학습 장소(Location)
-    score = Column(Integer, nullable=False, default=0.0) # 학습 점수
+    score = Column(Integer, nullable=False, default=0) # 학습 점수
     avg_focus = Column(Double, nullable=False, default=0.0)
     min_focus = Column(Integer, nullable=False, default=0)
     max_focus = Column(Integer, nullable=False, default=0)

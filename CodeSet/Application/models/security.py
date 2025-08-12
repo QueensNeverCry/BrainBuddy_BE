@@ -14,4 +14,3 @@ class RefreshToken(Base):
     issued_at = Column(DateTime, nullable= False, default= func.now())
     expires_at = Column(DateTime, nullable= False)
     revoked = Column(Boolean, default= False)
-    # device_id = Column(String(30), nullable= False)

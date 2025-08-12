@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
 from Application.models.users import User
-from Application.models.score import TotalScore, UserDailyScore
+from Application.models.score import TotalScore, StudySession
 from Application.core.config import STUDY_TIME_THRESHOLD
 
 from Application.api.dashboard.schemas import UserRankingItem, UserRecentReport
@@ -31,9 +31,10 @@ class ScoreDB:
         query = (select(TotalScore.user_name,
                         TotalScore.total_score,
                         TotalScore.avg_score.label("avg_focus"),
-                        TotalScore.total_cnt).order_by(desc(TotalScore.total_score)))
+                        TotalScore.total_cnt,
+                        TotalScore.trend).order_by(desc(TotalScore.total_score)))
         result = await db.execute(query)
-        rows = result.all()  # List[Tuple[str, int, float, int]]
+        rows = result.all()  # List[Tuple[str, int, float, int, bool]
         rank_list: List[UserRankingItem] = []
         for rank, (name, total_score, avg_focus, total_cnt, trend) in enumerate(rows, start=1): # trend 로직 써야함 
             rank_list.append(UserRankingItem(rank=rank,
@@ -65,11 +66,11 @@ class ScoreDB:
         return higher_cnt + 1
 
 
-class DailyDB:
+class StudyDB:
     @staticmethod
-    async def get_prev_records(db: AsyncSession, name: str, cnt: int) -> List[UserDailyScore | None]:
-        query = (select(UserDailyScore).where(UserDailyScore.user_name == name)
-                                            .order_by(desc(UserDailyScore.started_at))
+    async def get_prev_records(db: AsyncSession, name: str, cnt: int) -> List[StudySession | None]:
+        query = (select(StudySession).where(StudySession.user_name == name)
+                                            .order_by(desc(StudySession.started_at))
                                             .limit(cnt))
         result = await db.execute(query)
         records = result.scalars().all()
@@ -78,11 +79,11 @@ class DailyDB:
         return records
     
     @staticmethod
-    async def get_recent_record(db: AsyncSession, name: str) -> UserDailyScore | None:
+    async def get_recent_record(db: AsyncSession, name: str) -> StudySession | None:
         # study_time이 5분(300초) 이하인 경우는 제외 (웹소켓 서버에서도 동일하게 300초 이하 인 경우 학습으로 간주하지 않음 (DB 접근 overhead 최소화))
-        query = (select(UserDailyScore)
-                    .where(UserDailyScore.user_name == name, UserDailyScore.study_time > STUDY_TIME_THRESHOLD)
-                    .order_by(desc(UserDailyScore.started_at))
+        query = (select(StudySession)
+                    .where(StudySession.user_name == name, StudySession.study_time > STUDY_TIME_THRESHOLD)
+                    .order_by(desc(StudySession.started_at))
                     .limit(1))
         rows = await db.execute(query)
         return rows.scalars().first()
