@@ -10,11 +10,13 @@ class RealTimeService:
     async def collect_frames(websocket: WebSocket, user_name: str) -> str:
         frames = []
         start = time.time()
+        cnt = 0
         while len(frames) < N_FRAMES and (time.time() - start) < TIME_OUT:
             try:
-                frame = await asyncio.wait_for(websocket.receive_bytes(), 1.5)
-                print(f"[LOG] :     {type(frame)} - {datetime.now()}")
+                frame = await asyncio.wait_for(websocket.receive_bytes(), 1.0)
                 frames.append(frame)
+                cnt += 1
+                print(f"[LOG] :     {cnt} {type(frame)} - {datetime.now()}")
             except asyncio.TimeoutError:
                 continue
         if len(frames) < N_FRAMES:

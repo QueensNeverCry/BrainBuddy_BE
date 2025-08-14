@@ -80,9 +80,10 @@ class TokenService:
             revoked = await RefreshTokensTable.is_revoked(db, jti)
             if revoked:
                 await AccessBlackList.add_blacklist_token(ap.get("jti"), ap.get("exp"))
-            return TokenVerdict.INVALID_TOKEN
+                return TokenVerdict.INVALID_TOKEN
         # access 토큰의 blacklist 검사
         if await AccessBlackList.is_token_blacklisted(ap.get("jti")):
             return TokenVerdict.INVALID_TOKEN
         # 사용자 인증 완료
+        print(f"[SECURE] : {user_name} is valid user.")
         return TokenVerdict.VALID

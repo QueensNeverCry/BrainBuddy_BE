@@ -18,36 +18,36 @@ focus_tracker = FocusTracker()
 async def websocket_endpoint(websocket: WebSocket,
                              db: AsyncSession = Depends(AsyncDB.get_db),
                              params: Dict = Depends(Get.Parameters)) -> None:
-    # verdict = await TokenService.verify_tokens(db=db, access=params["access"], 
-    #                                           refresh=params["refresh"], 
-    #                                           user_name=params["user_name"])
+    verdict = await TokenService.verify_tokens(db=db, access=params["access"], 
+                                              refresh=params["refresh"], 
+                                              user_name=params["user_name"])
     # HandShake 수락
     await websocket.accept()
-    # if verdict != TokenVerdict.VALID:
-    #     await websocket.close(code=verdict.code, reason=verdict.reason)
-    #     return
+    if verdict != TokenVerdict.VALID:
+        await websocket.close(code=verdict.code, reason=verdict.reason)
+        return
     # ConnectionManager 등록 (user_name : websocket)
-    user_name = params["user_name"]
+    user_name = params['user_name']
     print(f"[CONNECTED] : {user_name}")
-    print(f"[CONNECTED] : {type(user_name)}")
     manager.connect(user_name, websocket)
     focus_tracker.init_user(user_name)
     try:
         while True:
             try:
+                # 1. 프레임 수집
                 file_name = await RealTimeService.collect_frames(websocket, user_name)
-                # cur_focus = await ModelService.inference_focus(file_name)
+                # 2. 추론
+                # cur_focus = ModelService.inference_focus(file_name)
                 cur_focus = await ModelService.test_inference(file_name)
-                result = focus_tracker.update_focus(user_name, cur_focus)
-                # result 를 client 에게 송신
+                # 3. focus 갱신 / 집계
+                result = await focus_tracker.update_focus(user_name, cur_focus)
+                # 4. result 를 client 에게 송신
                 await manager.send_current_focus(user_name, result)
             except TimeoutError:
                 print(f"[LOG] : {user_name} disconnected by time-out.")
-                focus_tracker.end_session(user_name)
                 await websocket.close(code=1000, reason="Timeout")
                 break
             except WebSocketDisconnect:
-                focus_tracker.end_session(user_name)
                 print(f"[LOG] : {user_name} Client disconnected.")
                 break
     finally:

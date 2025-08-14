@@ -21,4 +21,5 @@ class ConnectionManager:
     async def send_current_focus(self, user_name: str, focus: int) -> None:
         websocket = self.get_connection(user_name)
         if websocket:
+            print(f"[LOG] :     Manager send {user_name} - focus : {focus}")
             await websocket.send_json({"focus": focus})

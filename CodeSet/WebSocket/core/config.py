@@ -19,7 +19,7 @@ EXIST = int(os.getenv("EXIST"))
 MYSQL_DB_URL = os.getenv("MYSQL_DB_URL")
 LOCAL_DB_URL = os.getenv("LOCAL_DB_URL")
 
-TIME_OUT = 30
+TIME_OUT = 35
 N_FRAMES = 30
 FRAME_DIR = "/Users/v/SUN_RAT/I_AM_SEXY_QUEEN/BrainBuddy_BE/Test/IMG"
 MODEL_PATH = ""
