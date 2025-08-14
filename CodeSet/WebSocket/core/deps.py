@@ -30,11 +30,11 @@ class Get:
         params["access"] = websocket.cookies.get(ACCESS)
         if params["access"] is None:
             print(f"[LOG] : {params['user_name']} - No Access Token")
-            # raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
+            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
         params["refresh"] = websocket.cookies.get(REFRESH)
         if params["refresh"] is None:
             print(f"[LOG] : {params['user_name']} - No Refresh Token")
-            # raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
+            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
         return params
         
 

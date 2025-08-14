@@ -43,14 +43,14 @@ class TokenService:
     async def verify_tokens(db: AsyncSession, access: str, refresh: str, user_name: str) -> TokenVerdict:
         # 위변조 검증
         try:
-            ap = jwt.decode(access,
-                                        JWT_SECRET_KEY,
-                                        algorithms=[JWT_ALGORITHM],
-                                        options={"verify_exp": False})
-            rp = jwt.decode(refresh,
-                                         JWT_SECRET_KEY,
-                                         algorithms=[JWT_ALGORITHM],
-                                         options={"verify_exp": False})
+            ap = jwt.decode(token=access,
+                            key=JWT_SECRET_KEY,
+                            algorithms=[JWT_ALGORITHM],
+                            options={"verify_exp": False})
+            rp = jwt.decode(token=refresh,
+                            key=JWT_SECRET_KEY,
+                            algorithms=[JWT_ALGORITHM],
+                            options={"verify_exp": False})
         except JWTError:
             return TokenVerdict.INVALID_TOKEN
         access_invalid = get_invalid_claims(ap)
