@@ -1,2 +1,13 @@
+.gitignore
 .DS_Store
-CodeSet__/
+DS_Store
+__pycache__/
+
+CodeSet/.idea
+CodeSet/WebSocket/build
+CodeSet/WebSocket/cmake-build-debug
+CodeSet/WebSocket/.idea
+CodeSet/WebSocket/.vscode
+Test/
+
+*.py[cod]
