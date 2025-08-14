@@ -57,12 +57,6 @@ async def websocket_endpoint(websocket: WebSocket,
                                               user_name, 
                                               params["location"], 
                                               params["subject"])
-    # await focus_tracker.update_total(db, user_name, score)
-    
+    print(f"[LOG] : {user_name} 's score is {score}.")
 
-    #       - 컬럼을 확장 ? 아니면 단순히 study 기록을 분리...? (정규화 vs 비정규화)
-    # 2. 유저가 연결하자마자 바로 끊은 경우 : compute_score에서 내부적으로 “데이터 유무 체크” & “예외처리/skip” 구현  -> 최소 5분 초과만 학습 점수 연산 및 기록
-    # 3. handler 의 while True 문단 좀 더럽다...
-    # 4. 현재 웹소켓 서버  layer achitecture 좀더 생각해보기
-    # 5. Nginx 만들어야지...
-    # 6. 현재 WAS / WS 서버의 DB 는 전부 동일 인스턴스를 기준으로 되어있음. 이 또한 변경할 것...
+    # 유저가 연결하자마자 바로 끊은 경우 : compute_score에서 내부적으로 “데이터 유무 체크” & “예외처리/skip” 구현  -> 최소 5분 초과만 학습 점수 연산 및 기록

@@ -19,12 +19,15 @@ class DailyRecord:
 
 class ScoreDB:
     @staticmethod
-    async def func_1():
-        x = 10
+    async def increase_total_cnt(db: AsyncSession, user_name: str) -> None:
+        query = (update(TotalScore).where(TotalScore.user_name == user_name)
+                                        .values(total_cnt=TotalScore.total_cnt + 1)
+                                        .execution_options(synchronize_session="fetch"))
+        await db.execute(query)
 
 class StudyDB:
     @staticmethod
-    async def insert_daily(db: AsyncSession, record: DailyRecord):
+    async def insert_daily(db: AsyncSession, record: DailyRecord) -> None:
         # dataclass → dict → ORM 인스턴스
         data = asdict(record)
         orm_obj = StudySession(**data)
