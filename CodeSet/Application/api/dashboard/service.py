@@ -37,12 +37,18 @@ class RankingService:
             return await UsersDB.get_active_cnt(db)
 
     # 주간 랭킹 리스트 List 반환
-    # READ-ONLY process
+    # WRITE process
     @staticmethod
     async def get_ranking_list(db: AsyncSession) -> List[UserRankingItem]:
         async with db.begin():
             return await ScoreDB.sort_total_score(db)
 
+    # 주간 기록 최신화
+    # WRITE process
+    async def renew_total_score(db: AsyncSession) -> None:
+        async with db.begin():
+            ranking = await StudyDB.renew_records(db)
+            await ScoreDB.renew_table(db, ranking)
 
 class MainService:    
     # fetch main params
@@ -54,7 +60,7 @@ class MainService:
             record = await ScoreDB.get_TotalScore_record(db, name)
             rank = await ScoreDB.get_user_rank(db, name)
             result["total_users"] = await UsersDB.get_active_cnt(db)
-        result["avg_focus"] = record.avg_score if record else 0
+        result["avg_focus"] = record.avg_focus if record else 0
         result["total_study_cnt"] = record.total_cnt if record else 0
         result["rank"] = str(rank) if rank else "-"
         return result

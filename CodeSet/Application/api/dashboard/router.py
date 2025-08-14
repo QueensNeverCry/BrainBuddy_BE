@@ -21,8 +21,9 @@ router = APIRouter()
             description="Provides the weekly ranking of users based on their scores over the past 7 days.")
 async def get_weekly_ranking(db: AsyncSession = Depends(AsyncDB.get_db)) -> RankingResponse:
     try:
-        total = await RankingService.get_total_cnt(db)
-        ranking = await RankingService.get_ranking_list(db)
+        await RankingService.renew_total_score(db=db)
+        ranking = await RankingService.get_ranking_list(db=db)
+        total = await RankingService.get_total_cnt(db=db)
         return RankingResponse(total_users=total, ranking=ranking)
     except SQLAlchemyError:
         raise Server.DB_ERROR.exc()
@@ -52,8 +53,8 @@ async def get_main_info(user_name: str = Depends(GetCurrentUser),
 
 # --- 사용자의 학습 종료 직후 리포트 요청 API [HTTPS GET : https://{ServerDNS}/api/dashboard/recent-report/me] ---
 @router.get(path="/recent-report/me",
-             summary="Recent Learning Analytics Request",
-             description="Return the analysis result data immediately after the user's study session ends.")
+            summary="Recent Learning Analytics Request",
+            description="Return the analysis result data immediately after the user's study session ends.")
 async def get_study_report(name: str = Depends(GetCurrentUser),
                            db: AsyncSession = Depends(AsyncDB.get_db)) -> RecentResponse:
     try:

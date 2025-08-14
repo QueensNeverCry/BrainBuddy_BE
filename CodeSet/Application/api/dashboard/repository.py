@@ -1,6 +1,8 @@
-from sqlalchemy import func, select, exists, desc
+from sqlalchemy import func, select, update, delete, insert, exists, desc, text, not_
+from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
+from datetime import datetime, timedelta
 
 from Application.models.users import User
 from Application.models.score import TotalScore, StudySession
@@ -25,24 +27,28 @@ class UsersDB:
 
 
 class ScoreDB:
-    #
     @staticmethod
     async def sort_total_score(db: AsyncSession) -> List[UserRankingItem]:
         query = (select(TotalScore.user_name,
                         TotalScore.total_score,
-                        TotalScore.avg_score.label("avg_focus"),
+                        TotalScore.avg_focus,
                         TotalScore.total_cnt,
-                        TotalScore.trend).order_by(desc(TotalScore.total_score)))
+                        TotalScore.prev_rank).order_by(desc(TotalScore.total_score)))
         result = await db.execute(query)
-        rows = result.all()  # List[Tuple[str, int, float, int, bool]
+        rows = result.all()  # List[Tuple[str, int, float, int, int]
         rank_list: List[UserRankingItem] = []
-        for rank, (name, total_score, avg_focus, total_cnt, trend) in enumerate(rows, start=1): # trend 로직 써야함 
+        for rank, (name, total_score, avg_focus, total_cnt, prev_rank) in enumerate(rows, start=1):
+            trend_flag = (prev_rank == 0) or ((prev_rank != -1) and (rank <= prev_rank))
             rank_list.append(UserRankingItem(rank=rank,
                                              score=total_score,
                                              user_name=name,
                                              total_cnt=total_cnt,
                                              avg_focus= avg_focus,
-                                             trend= trend))
+                                             trend= trend_flag))
+        for rank, item in enumerate(rank_list, start=1):
+            query = (update(TotalScore).where(TotalScore.user_name == item.user_name)
+                                            .values(prev_rank=rank))
+            await db.execute(query)
         return rank_list
     
     @staticmethod
@@ -65,6 +71,31 @@ class ScoreDB:
         higher_cnt = rank_result.scalar_one()
         return higher_cnt + 1
 
+    @staticmethod
+    async def renew_table(db: AsyncSession, ranking: dict) -> None:
+        # UPSERT 대상 행
+        rows = []
+        for user_name, vals in ranking.items():
+            ts = int(vals.get("total_score") or 0)
+            tt = int(vals.get("total_time") or 0)
+            avg = float(ts / tt) if tt > 0 else 0.0
+            # INSERT 시 prev_rank 는 0으로 초기화 (DB server default가 없다면 명시적으로 보장)
+            rows.append({"user_name" : user_name,
+                                "total_score" : ts,
+                                "avg_focus" : avg})
+        # ranking 유저는 UPSERT
+        if rows:
+            ins = mysql_insert(TotalScore).values(rows)
+            query = ins.on_duplicate_key_update(total_score=ins.inserted.total_score,
+                                                avg_focus=ins.inserted.avg_focus)
+            await db.execute(query)
+            # ranking 에 '없는' 유저는 기본값 초기화, 단 prev_rank = -1 로 초기화 하여 trend 값 False 로 유도 (reset)
+            names = [r["user_name"] for r in rows]
+            await db.execute(update(TotalScore)
+                             .where(not_(TotalScore.user_name.in_(names)))
+                             .values(total_score=0,
+                                     avg_focus=0.0,
+                                     prev_rank=-1))
 
 class StudyDB:
     @staticmethod
@@ -88,4 +119,22 @@ class StudyDB:
         rows = await db.execute(query)
         return rows.scalars().first()
         
-        
+    @staticmethod
+    async def renew_records(db: AsyncSession) -> dict:
+        # 1. StudySession 테이블에서 현재 시각 기준 StudySession.started_at 이 일주일 이내 인 record 제외 전부 delete
+        deletion = (delete(StudySession)
+                .where(StudySession.started_at < func.date_sub(func.now(), text("INTERVAL 7 DAY"))))
+        await db.execute(deletion)
+        await db.flush()
+        # 2. StudySession.user_name 이 key, value 는 total_score (StudySession.score 의 누적 합), total_time (StudySession.study_time / 10 의 누적합)
+        agg_query = (select(StudySession.user_name.label("user_name"),
+                            func.coalesce(func.sum(StudySession.score), 0).label("total_score"),
+                            func.coalesce(func.sum(func.floor(func.coalesce(StudySession.study_time, 0) / 10)), 0)
+                                        .label("total_time"))
+                            .group_by(StudySession.user_name))
+        result = await db.execute(agg_query)
+        rows = result.all()
+        ranking = dict()
+        for user_name, total_score, total_time in rows:
+            ranking[user_name] = { "total_score": int(total_score or 0), "total_time": int(total_time or 0) }
+        return ranking
