@@ -4,8 +4,6 @@ from pydantic import SecretStr
 import bcrypt
 import asyncio
 
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-
 from Application.core.security import Token
 from Application.core.repository import AccessBlackList, RefreshTokensTable
 from Application.core.config import ACCESS, ACCESS_TOKEN_EXPIRE_SEC, REFRESH, REFRESH_TOKEN_EXPIRE_SEC
@@ -121,7 +119,7 @@ class TokenService:
         access, refresh, refresh_payload = Token.create_tokens(user_name)
         # 토큰 쿠키 삽입
         InsertTokens(res, access, refresh)
-        print(f"[DEBUG] :   Inserted tokens.")
+        print(f"[DEBUG] :  {user_name}  Inserted tokens.")
         # RTR 저장
         async with db.begin():
             await RefreshDB.purge_user_tokens(db, user_name) # 만료, 폐기 토큰 삭제
