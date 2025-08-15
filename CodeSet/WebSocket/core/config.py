@@ -21,5 +21,5 @@ LOCAL_DB_URL = os.getenv("LOCAL_DB_URL")
 
 TIME_OUT = 35
 N_FRAMES = 30
-FRAME_DIR = "/Users/v/SUN_RAT/I_AM_SEXY_QUEEN/BrainBuddy_BE/Test/IMG"
+FRAME_DIR = "/Users/v/SUN_RAT/QUEEN/BrainBuddy_BE/Test/IMG"
 MODEL_PATH = ""

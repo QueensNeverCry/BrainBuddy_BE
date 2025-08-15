@@ -14,7 +14,8 @@ manager = ConnectionManager()
 focus_tracker = FocusTracker()
 
 # HandShake 최초 호출
-@router.websocket("/real-time") # 프론트에서 query string 끝에 user_name, subject, location 입력해야함 !!
+# 프론트에서 query string 끝에 user_name, subject, location 입력해야함 !!
+@router.websocket("/real-time")
 async def websocket_endpoint(websocket: WebSocket,
                              db: AsyncSession = Depends(AsyncDB.get_db),
                              params: Dict = Depends(Get.Parameters)) -> None:
@@ -35,10 +36,10 @@ async def websocket_endpoint(websocket: WebSocket,
         while True:
             try:
                 # 1. 프레임 수집
-                file_name = await RealTimeService.collect_frames(websocket, user_name)
+                img_dir = await RealTimeService.collect_frames(websocket, user_name)
                 # 2. 추론
-                # cur_focus = ModelService.inference_focus(file_name)
-                cur_focus = await ModelService.test_inference(file_name)
+                cur_focus = await ModelService.inference_focus(img_dir)
+                # cur_focus = await ModelService.test_inference(file_name)
                 # 3. focus 갱신 / 집계
                 result = await focus_tracker.update_focus(user_name, cur_focus)
                 # 4. result 를 client 에게 송신
