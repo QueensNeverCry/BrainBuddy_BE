@@ -24,7 +24,7 @@ async def websocket_endpoint(websocket: WebSocket,
                                               user_name=params["user_name"])
     # HandShake 수락
     await websocket.accept()
-    if verdict != TokenVerdict.VALID:
+    if verdict != TokenVerdict.VALID or manager.check_user(user_name):
         await websocket.close(code=verdict.code, reason=verdict.reason)
         return
     # ConnectionManager 등록 (user_name : websocket)

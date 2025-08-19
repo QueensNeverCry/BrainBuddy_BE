@@ -26,6 +26,23 @@ def change_format(seconds: int) -> str:
     minute = (seconds % 3600) // 60
     return f"{hour}:{minute}"
 
+def parse_grade(avg_focus: float) -> str:
+    if avg_focus >= 7.5 :
+        return "A"
+    elif avg_focus >= 5.0 :
+        return "B"
+    elif avg_focus >= 2.5 :
+        return "C"
+    return "D"
+
+def parse_ment(avg_focus: float) -> str:
+    if avg_focus >= 7.5 :
+        return "놀라운 집중력이예요! 계속 이 패턴을 유지하세요!"
+    elif avg_focus >= 5.0 :
+        return "훌륭한 집중력입니다! 조금만 더 노력하면 완벽해요!"
+    elif avg_focus >= 2.5 :
+        return "괜찮은 시작이예요! 환경을 개선하면 더 좋아질 거예요!"
+    return "다음에는 더 잘할 수 있어요! 포기하지 마세요!"
 
 
 class RankingService:
@@ -85,15 +102,16 @@ class MainService:
 
     # 사용자의 직전에 완료한 학습 결과 데이터 반환
     # READ-ONLY process
-    async def fetch_recent_study(db: AsyncSession, name: str) -> UserRecentReport | None:
+    async def fetch_recent_study(db: AsyncSession, name: str) -> dict | None:
         async with db.begin():
             row : StudySession | None = await StudyDB.get_recent_record(db, name)
         if row:
-            return UserRecentReport(score=row.score,
-                                    duration=change_format(row.study_time),
-                                    avg_focus=row.avg_focus,
-                                    max_focus=row.max_focus,
-                                    min_focus=row.min_focus,
-                                    message= "최근 학습 기록입니다.")
+            return {"final_score": row.score,
+                    "duration": change_format(row.study_time),
+                    "avg_focus": row.avg_focus,
+                    "max_focus": row.max_focus,
+                    "min_focus": row.min_focus,
+                    "final_grade": parse_grade(row.avg_focus),
+                    "final_ment": parse_ment(row.avg_focus)}
         else:
             return None

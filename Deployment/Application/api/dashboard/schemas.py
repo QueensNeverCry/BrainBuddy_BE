@@ -57,4 +57,10 @@ class MainResponse(BaseModel):
 # 사용자 학습 완료 직후 분석레포트    
 class RecentResponse(BaseModel):
     status: str = Field(...) # success | skipped
-    report: UserRecentReport | None
+    final_score: int
+    duration: str
+    avg_focus: float
+    max_focus: int
+    min_focus: int
+    final_grade: str
+    final_ment: str

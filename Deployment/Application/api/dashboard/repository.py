@@ -112,8 +112,9 @@ class StudyDB:
     @staticmethod
     async def get_recent_record(db: AsyncSession, name: str) -> StudySession | None:
         # study_time이 5분(300초) 이하인 경우는 제외 (웹소켓 서버에서도 동일하게 300초 이하 인 경우 학습으로 간주하지 않음 (DB 접근 overhead 최소화))
+        # 현재 시연 준비로 0 으로 설정...
         query = (select(StudySession)
-                    .where(StudySession.user_name == name, StudySession.study_time > STUDY_TIME_THRESHOLD)
+                    .where(StudySession.user_name == name, StudySession.study_time > 0)
                     .order_by(desc(StudySession.started_at))
                     .limit(1))
         rows = await db.execute(query)

@@ -17,6 +17,9 @@ class ConnectionManager:
 
     def get_connection(self, user_name: str) -> WebSocket | None:
         return self.connections.get(user_name)
+    
+    def check_user(self, user_name: str) -> bool:
+        return user_name in self.connections
 
     async def send_current_focus(self, user_name: str, focus: int) -> None:
         websocket = self.get_connection(user_name)
