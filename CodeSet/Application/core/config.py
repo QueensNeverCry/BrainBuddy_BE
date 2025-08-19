@@ -5,18 +5,24 @@ load_dotenv()
 
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
-ISSUER = "KSEB_04"
+ISSUER = os.getenv("ISSUER")
+
+COOKIE_TIME = int(os.getenv("BB_COOKIE_TIME"))
+
 ACCESS = os.getenv("ACCESS")
-ACCESS_TYPE = "queen"
+ACCESS_TYPE = os.getenv("ACCESS_TYPE")
 ACCESS_TOKEN_EXPIRE_SEC= int(os.getenv("BB_ACCESS_TOKEN_EXPIRE_SEC"))
+
 REFRESH = os.getenv("REFRESH")
-REFRESH_TYPE = "nevercry"
+REFRESH_TYPE = os.getenv("REFRESH_TYPE")
 REFRESH_TOKEN_EXPIRE_SEC = int(os.getenv("BB_REFRESH_TOKEN_EXPIRE_SEC"))
+
 LOCAL = os.getenv("localhost")
-REDIS_PORT = int(os.getenv("REDIS_PORT"))
+REDIS_HOST = os.getenv("REDIS_HOST")
 BLACK_LIST_ID = int(os.getenv("BLACK_LIST_ID"))
 EXIST = int(os.getenv("EXIST"))
 MYSQL_DB_URL = os.getenv("MYSQL_DB_URL")
 LOCAL_DB_URL = os.getenv("LOCAL_DB_URL")
-COMPONENT_CNT = 9
-STUDY_TIME_THRESHOLD = 300
+REDIS_PORT = os.getenv("REDIS_PORT")
+COMPONENT_CNT = int(os.getenv("COMPONENT_CNT"))
+STUDY_TIME_THRESHOLD = int(os.getenv("STUDY_TIME_THRESHOLD"))

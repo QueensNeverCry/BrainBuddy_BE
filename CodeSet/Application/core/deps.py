@@ -10,6 +10,7 @@ from Application.core.config import ACCESS
 
 def GetCurrentUser(request: Request) -> str:
     token = request.cookies.get(ACCESS)
+    print(f"[DEBUG] : {token}")
     if not token:
         raise TokenAuth.TOKEN_INVALID.exc()
     try:

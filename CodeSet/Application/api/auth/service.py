@@ -6,7 +6,7 @@ import asyncio
 
 from Application.core.security import Token
 from Application.core.repository import AccessBlackList, RefreshTokensTable
-from Application.core.config import ACCESS, ACCESS_TOKEN_EXPIRE_SEC, REFRESH, REFRESH_TOKEN_EXPIRE_SEC
+from Application.core.config import ACCESS, REFRESH, COOKIE_TIME
 from Application.models.users import User
 from Application.models.score import TotalScore
 
@@ -22,14 +22,14 @@ def InsertTokens(res: Response, access_token: str, refresh_token: str) -> None:
                    httponly= True,     # JS로 접근 불가, XSS 공격 방지
                    secure= True,       # HTTPS에서만 전송 허용
                    samesite= "strict", # CSRF 공격 방지, BrainBuddy 도메인에서 출발한 요청에만 브라우저가 쿠키 첨부 !
-                   max_age= ACCESS_TOKEN_EXPIRE_SEC,
+                   max_age= COOKIE_TIME,
                    path= "/")
     res.set_cookie(key= REFRESH,
                    value= refresh_token,
                    httponly= True,
                    secure= True,
                    samesite= "strict",
-                   max_age= REFRESH_TOKEN_EXPIRE_SEC,
+                   max_age= COOKIE_TIME,
                    path= "/")
     
 def ClearCookie(res: Response) -> None:
@@ -131,6 +131,7 @@ class TokenService:
     async def verify_tokens(db: AsyncSession, req: Request, res: Response, user_name: str) -> None:
         old_access = req.cookies.get(ACCESS)
         old_refresh = req.cookies.get(REFRESH)
+        print(f"[DEBUG] : old_access : {old_access}")
         try:
             async with db.begin():
                 # 두 token 모두 존재, 모든 claim 검증, user_email 일치 확인

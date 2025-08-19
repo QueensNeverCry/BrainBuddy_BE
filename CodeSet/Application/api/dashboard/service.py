@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import time, datetime
+from datetime import time, datetime, timezone
+from zoneinfo import ZoneInfo
 from typing import List
 
 from Application.core.config import COMPONENT_CNT
@@ -11,11 +12,16 @@ from Application.api.dashboard.schemas import UserRankingItem, UserHistoryItem, 
 
 
 def parse_time(t: datetime) -> str:
-    period = "오전" if t.hour < 12 else "오후"
-    hour = t.hour % 12
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=timezone.utc)
+
+    local_time = t.astimezone(ZoneInfo("Asia/Seoul"))
+
+    period = "오전" if local_time.hour < 12 else "오후"
+    hour = local_time.hour % 12
     if hour == 0:
         hour = 12
-    minute = f"{t.minute:02d}"
+    minute = f"{local_time.minute:02d}"
     return f"{period} {hour}:{minute}"
 
 def parse_minutes(seconds: int) -> int:
@@ -24,9 +30,25 @@ def parse_minutes(seconds: int) -> int:
 def change_format(seconds: int) -> str:
     hour = seconds // 3600
     minute = (seconds % 3600) // 60
-    return f"{hour}:{minute}"
+    return f"{hour}:{minute:02d}"
 
+def parse_grade(avg_focus: float) -> str:
+    if avg_focus >= 7.5 :
+        return "A"
+    elif avg_focus >= 5.0 :
+        return "B"
+    elif avg_focus >= 2.5 :
+        return "C"
+    return "D"
 
+def parse_ment(avg_focus: float) -> str:
+    if avg_focus >= 7.5 :
+        return "놀라운 집중력이예요! 계속 이 패턴을 유지하세요!"
+    elif avg_focus >= 5.0 :
+        return "훌륭한 집중력입니다! 조금만 더 노력하면 완벽해요!"
+    elif avg_focus >= 2.5 :
+        return "괜찮은 시작이예요! 환경을 개선하면 더 좋아질 거예요!"
+    return "다음에는 더 잘할 수 있어요! 포기하지 마세요!"
 
 class RankingService:
     # 전체 active 사용자 수 반환
@@ -76,7 +98,7 @@ class MainService:
                                   time=parse_time(record.started_at) if record else "",
                                   duration=parse_minutes(record.study_time) if record else 0,
                                   place=record.location if record else "",
-                                  avg_focus=record.avg_focus if record else 0.0,
+                                  avg_focus=float(f"{record.avg_focus:.2f}")  if record else 0.0,
                                   min_focus=record.min_focus if record else 0,
                                   max_focus=record.max_focus if record else 0)
                                   
@@ -85,15 +107,16 @@ class MainService:
 
     # 사용자의 직전에 완료한 학습 결과 데이터 반환
     # READ-ONLY process
-    async def fetch_recent_study(db: AsyncSession, name: str) -> UserRecentReport | None:
+    async def fetch_recent_study(db: AsyncSession, name: str) -> dict | None:
         async with db.begin():
             row : StudySession | None = await StudyDB.get_recent_record(db, name)
         if row:
-            return UserRecentReport(score=row.score,
-                                    duration=change_format(row.study_time),
-                                    avg_focus=row.avg_focus,
-                                    max_focus=row.max_focus,
-                                    min_focus=row.min_focus,
-                                    message= "최근 학습 기록입니다.")
+            return {"final_score": row.score,
+                    "duration": change_format(row.study_time),
+                    "avg_focus": round(row.avg_focus * 10, 2),
+                    "max_focus": row.max_focus * 10,
+                    "min_focus": row.min_focus * 10,
+                    "final_grade": parse_grade(row.avg_focus),
+                    "final_ment": parse_ment(row.avg_focus)}
         else:
             return None
