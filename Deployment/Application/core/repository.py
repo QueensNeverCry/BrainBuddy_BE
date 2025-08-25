@@ -5,12 +5,17 @@ from datetime import datetime, timezone
 from typing import Union
 
 from Application.models.security import RefreshToken
-from Application.core.config import REDIS_HOST, REDIS_PORT, BLACK_LIST_ID, EXIST
+from Application.core.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, BLACK_LIST_ID, EXIST
 
 import redis.asyncio as aioredis
 
-BlackList = aioredis.Redis(host=REDIS_HOST, port= REDIS_PORT, db= BLACK_LIST_ID)
-
+BlackList = aioredis.Redis(host= REDIS_HOST,
+                           port= REDIS_PORT,
+                           db= BLACK_LIST_ID,
+                           password= REDIS_PASSWORD,
+                           decode_responses= True,
+                           health_check_interval= 30,
+                           socket_keepalive= True)
 
 class AccessBlackList:
     # jti(Key)와 만료 시간을 설정 Redis에 저장

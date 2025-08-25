@@ -58,16 +58,15 @@ async def get_main_info(user_name: str = Depends(GetCurrentUser),
 async def get_study_report(name: str = Depends(GetCurrentUser),
                            db: AsyncSession = Depends(AsyncDB.get_db)) -> RecentResponse:
     try:
-        print(f"{name}")
         res: dict = await MainService.fetch_recent_study(db, name)
     except SQLAlchemyError:
         raise Server.DB_ERROR.exc()
     return RecentResponse(status="success" if res else "skipped",
-                          final_score=res.get("final_score"),
-                          duration=res.get("duration"),
-                          avg_focus=res.get("avg_focus"),
-                          max_focus=res.get("max_focus"),
-                          min_focus=res.get("min_focus"),
-                          final_grade=res.get("final_grade"),
-                          final_ment=res.get("final_ment"))
+                          final_score=res.get("final_score") if res else 0,
+                          duration=res.get("duration") if res else "",
+                          avg_focus=res.get("avg_focus") if res else 0.0,
+                          max_focus=res.get("max_focus") if res else 0,
+                          min_focus=res.get("min_focus") if res else 0,
+                          final_grade=res.get("final_grade") if res else "None",
+                          final_ment=res.get("final_ment") if res else "Let's play with BrainBuddy!")
 # --------------------------------------------------------------------------------------------------------

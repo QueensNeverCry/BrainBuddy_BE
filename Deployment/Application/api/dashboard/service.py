@@ -77,7 +77,7 @@ class MainService:
             record = await ScoreDB.get_TotalScore_record(db, name)
             rank = await ScoreDB.get_user_rank(db, name)
             result["total_users"] = await UsersDB.get_active_cnt(db)
-        result["avg_focus"] = record.avg_focus if record else 0
+        result["avg_focus"] = round(record.avg_focus, 3) if record else 0
         result["total_study_cnt"] = record.total_cnt if record else 0
         result["rank"] = str(rank) if rank else "-"
         return result
@@ -103,12 +103,11 @@ class MainService:
     # 사용자의 직전에 완료한 학습 결과 데이터 반환
     # READ-ONLY process
     async def fetch_recent_study(db: AsyncSession, name: str) -> dict | None:
-        async with db.begin():
-            row : StudySession | None = await StudyDB.get_recent_record(db, name)
+        row : StudySession | None = await StudyDB.get_recent_record(db, name)
         if row:
             return {"final_score": row.score,
                     "duration": change_format(row.study_time),
-                    "avg_focus": row.avg_focus,
+                    "avg_focus": round(row.avg_focus, 3),
                     "max_focus": row.max_focus,
                     "min_focus": row.min_focus,
                     "final_grade": parse_grade(row.avg_focus),
