@@ -12,7 +12,7 @@ from WebSocket.repository import AccessBlackList, RefreshTokensTable
 
 RequiredClaims = {"sub", "jti", "iat", "typ", "iss", "exp"}
 
-def get_invalid_claims(payload: dict) -> set[str]:
+def GetInvalidClaims(payload: dict) -> set[str]:
     # RequiredClaims 에 없는 claim 존재 여부 검사
     extra = set(payload.keys()) - RequiredClaims
     if extra:
@@ -28,7 +28,8 @@ def get_invalid_claims(payload: dict) -> set[str]:
             invalid.add(claim)
     return invalid
 
-def check_standard_claims(access_payload: dict, refresh_payload: dict, name: str) -> bool:
+# 각 field 의 값 확인
+def CheckStandardClaims(access_payload: dict, refresh_payload: dict, name: str) -> bool:
     if access_payload.get("sub") != name or refresh_payload.get("sub") != name:
         return False
     if access_payload.get("typ") != ACCESS_TYPE or refresh_payload.get("typ") != REFRESH_TYPE:
@@ -53,18 +54,18 @@ class TokenService:
                             options={"verify_exp": False})
         except JWTError:
             return TokenVerdict.INVALID_TOKEN
-        access_invalid = get_invalid_claims(ap)
-        refresh_invalid = get_invalid_claims(rp)
+        access_invalid = GetInvalidClaims(ap)
+        refresh_invalid = GetInvalidClaims(rp)
         if access_invalid or refresh_invalid:
             return TokenVerdict.INVALID_TOKEN
         # 사용자 일치, 표준 claim 확인
-        if not check_standard_claims(ap, rp, user_name):
+        if not CheckStandardClaims(ap, rp, user_name):
             async with db.begin():
                 await AccessBlackList.add_blacklist_token(ap.get("jti"), ap.get("exp"))
                 await RefreshTokensTable.update_to_revoked(db, rp.get("jti"))
             return TokenVerdict.INVALID_TOKEN
         jti = rp.get("jti")
-        # refresh 토큰의 만료된 refresh 요청을 하고 그다음에 로그인하게.. 쿠키비우기 ㅜㅜ
+        # refresh 토큰의 만료된 refresh 요청을 하고 그다음에 로그인하게 유도
         now = datetime.now(timezone.utc)
         exp_refresh = datetime.fromtimestamp(rp["exp"], tz=timezone.utc)
         if exp_refresh < now:

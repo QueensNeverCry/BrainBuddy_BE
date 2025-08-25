@@ -20,10 +20,10 @@ LOCAL = os.getenv("localhost")
 
 REDIS_HOST = os.getenv("REDIS_HOST")
 REDIS_PORT = int(os.getenv("REDIS_PORT"))
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 BLACK_LIST_ID = int(os.getenv("BLACK_LIST_ID"))
 EXIST = int(os.getenv("EXIST"))
 
-LOCAL_DB_URL = os.getenv("LOCAL_DB_URL")
 MYSQL_DB_URL = os.getenv("MYSQL_DB_URL")
 
 TIME_OUT = int(os.getenv("TIME_OUT"))

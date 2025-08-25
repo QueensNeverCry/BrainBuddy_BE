@@ -1,7 +1,7 @@
 from fastapi import WebSocket
 from PIL import Image
 from datetime import datetime
-import time, os, pickle, io
+import time, os, io
 import asyncio
 import shutil
 
