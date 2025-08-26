@@ -25,6 +25,10 @@ BLACK_LIST_ID = int(os.getenv("BLACK_LIST_ID"))
 EXIST = int(os.getenv("EXIST"))
 
 MYSQL_DB_URL = os.getenv("MYSQL_DB_URL")
+DB_POOL_SIZE    = int(os.getenv("DB_POOL_SIZE"))
+DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW"))
+DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT"))
+DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE"))
 
 COMPONENT_CNT = int(os.getenv("COMPONENT_CNT"))
 STUDY_TIME_THRESHOLD = int(os.getenv("STUDY_TIME_THRESHOLD"))
